@@ -10,7 +10,7 @@ publish = false                 # internal frontend crate, not a published contr
 [dependencies]
 hpdl-model = { path = "../hpdl-model" }
 hpdl-sema = { path = "../hpdl-sema" }
-ron = { version = "0.8", features = ["integer128"] }
+ron = { version = "0.12", features = ["integer128"] }
 serde = { version = "1", features = ["derive"] }
 thiserror = "2"
 
