@@ -75,7 +75,7 @@ jobs:
 
       - name: Upload to Codecov (optional)
         if: steps.codecov_cfg.outputs.enabled == 'true'
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v7
         with:
           files: lcov.info
           token: ${{ secrets.CODECOV_TOKEN }}
