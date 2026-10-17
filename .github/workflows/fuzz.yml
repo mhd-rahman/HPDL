@@ -57,7 +57,7 @@ jobs:
           tool: cargo-fuzz
 
       - name: Cache fuzz build artifacts
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             ~/.cargo/registry/index/
