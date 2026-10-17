@@ -1,0 +1,29 @@
+{
+  "_comment": [
+    "FROZEN canonical PIR golden vectors (spec 16, REQ-01).",
+    "Each record pins the exact SHA-256 content hash (domain separator HPDL-PIR-v2)",
+    "of a fixed PlanetDefinition under the current PIR format version.",
+    "",
+    "DO NOT regenerate these to make a test pass. A changed hash means the canonical",
+    "bytes changed, which requires a deliberate PIR format-version decision + ADR +",
+    "reviewed vector update (determinism steering; see docs/rfcs/0003-pir-v2-orbital-fields.md).",
+    "",
+    "The `minimal` and `traits` records match crates/hpdl-compiler/examples/emit_digests.rs,",
+    "so the cross-platform CI digest-parity job and this frozen test assert the same values."
+  ],
+  "pir_version": "2.0",
+  "vectors": [
+    {
+      "name": "minimal",
+      "body_id": "earth",
+      "language_version": "1.0",
+      "content_hash": "608a90a7f19de7551bcf2d72bc44e1756739434f88ae1c7a6c61d24008d9ee9f"
+    },
+    {
+      "name": "traits",
+      "body_id": "mars",
+      "language_version": "1.0",
+      "content_hash": "9bc40d4ecb23bed96be2f43fe2fd6acbb8df9bc275c820cddbe9a99a26c01ede"
+    }
+  ]
+}

@@ -80,6 +80,33 @@ jobs:
         with:
           toolchain: ${{ env.RUST_MSRV }}
 
+      # Guard against rust-version drift (spec 16, REQ-06): every crate must
+      # declare exactly the ratified MSRV (ADR 0001, OD-02). A crate missing the
+      # field or declaring a different value fails here.
+      - name: Check rust-version consistency across crates
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected="${RUST_MSRV%.*}"   # crates pin "1.85.0"; accept the x.y.z form
+          fail=0
+          for manifest in crates/*/Cargo.toml; do
+            line=$(grep -E '^\s*rust-version\s*=' "$manifest" || true)
+            if [ -z "$line" ]; then
+              echo "::error file=$manifest::missing rust-version (expected ${RUST_MSRV})"
+              fail=1
+              continue
+            fi
+            if ! echo "$line" | grep -q "\"${RUST_MSRV}\""; then
+              echo "::error file=$manifest::rust-version mismatch: $line (expected \"${RUST_MSRV}\")"
+              fail=1
+            fi
+          done
+          if [ "$fail" -ne 0 ]; then
+            echo "rust-version drift detected; reconcile to ${RUST_MSRV} (ADR 0001)."
+            exit 1
+          fi
+          echo "All crates declare rust-version = ${RUST_MSRV}."
+
       - name: Cache cargo registry and build artifacts
         uses: actions/cache@v4
         with:

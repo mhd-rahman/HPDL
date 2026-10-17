@@ -27,13 +27,20 @@ release a fix or mitigation within **30 days** for confirmed high-severity issue
 
 The following are in scope:
 
-- All crates in this workspace (`hpdl-model`, `hpdl-sema`, `hpdl-pir`,
-  `hpdl-ron`, `hpdl-compiler`, `hpdl-cli`)
-- Parsing and deserialization of untrusted `.hpdl`, `.ron`, PIR, and lockfile inputs
-- Determinism or canonicalization bypass attacks
-- Denial of service via malformed input (unbounded allocation, nesting, recursion)
+- All active crates in this workspace: `hpdl-model`, `hpdl-sema`, `hpdl-ron`,
+  `hpdl-syntax`, `hpdl-pir`, `hpdl-compiler`, `hpdl-cli`, and `hpdl-runtime-api`.
+- Parsing and deserialization of untrusted inputs: `.hpdl` and `.ron` source,
+  canonical PIR blobs, `hpdl.lock` lockfiles, and migration / package payloads.
+- Determinism or canonicalization bypass attacks (any input that makes equivalent
+  semantics produce divergent canonical PIR bytes or hashes).
+- Denial of service via malformed input (unbounded allocation, nesting, recursion,
+  or decode work).
+- Integrity bypass of content-addressed references (package or asset digest mismatch
+  accepted as valid).
 
-The HORIZON simulation runtime is a separate project and out of scope here.
+The external HORIZON simulation runtime, its executor, and the validator network are
+separate projects and out of scope here. `hpdl-runtime-api` is in scope only as the
+published *contract* surface (types, receipts, binding hashes); it ships no executor.
 
 ## Disclosure Policy
 
