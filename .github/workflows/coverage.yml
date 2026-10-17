@@ -57,26 +57,10 @@ jobs:
             lcov.info
             coverage-summary.txt
 
-      # Optional: upload to Codecov only if a token secret is configured. The
-      # `secrets` context cannot be used in a step `if:`, so gate on an env var
-      # populated from the secret. For a private/internal repo you can wire this
-      # later; the lcov.info artifact above is always produced regardless.
-      - name: Check for Codecov token
-        id: codecov_cfg
-        env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-        shell: bash
-        run: |
-          if [ -n "${CODECOV_TOKEN:-}" ]; then
-            echo "enabled=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "enabled=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Upload to Codecov (optional)
-        if: steps.codecov_cfg.outputs.enabled == 'true'
-        uses: codecov/codecov-action@v4
+      - name: Upload to Codecov
+        uses: codecov/codecov-action@v5
         with:
           files: lcov.info
           token: ${{ secrets.CODECOV_TOKEN }}
-          fail_ci_if_error: false
+          fail_ci_if_error: true
+          verbose: true

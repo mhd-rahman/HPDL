@@ -1,7 +1,7 @@
 //! Demonstrates the distinct failure modes of the RON frontend: a syntax error
 //! (parse failure) versus a semantically-invalid-but-well-formed definition.
 //!
-//! Run with: `cargo run -p hpdl-ron --example error_handling`
+//! Run with: `cargo run -p hpdl-ron --example ron_error_handling`
 
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 

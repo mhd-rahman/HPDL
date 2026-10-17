@@ -25,8 +25,7 @@ const FROZEN_MINIMAL_HASH: &str =
 /// Frozen content hash of the `traits` vector (`BodyId("mars")`, Mars physical
 /// properties, traits `["rocky", "thin-atmosphere"]`) under PIR format v2.0.
 /// Mirrors `emit_digests.rs` `traits` and `pir_vectors.json`.
-const FROZEN_TRAITS_HASH: &str =
-    "9bc40d4ecb23bed96be2f43fe2fd6acbb8df9bc275c820cddbe9a99a26c01ede";
+const FROZEN_TRAITS_HASH: &str = "9bc40d4ecb23bed96be2f43fe2fd6acbb8df9bc275c820cddbe9a99a26c01ede";
 
 #[allow(clippy::unwrap_used)]
 fn minimal_planet(id: &str) -> PlanetDefinition {
