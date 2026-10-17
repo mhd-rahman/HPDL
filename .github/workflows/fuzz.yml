@@ -93,17 +93,27 @@ jobs:
             echo "seconds=120" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Seed the corpus
+      - name: Seed the corpora
         shell: bash
         run: |
-          mkdir -p fuzz/corpus/decode_pir
-          cp -n fuzz/seeds/* fuzz/corpus/decode_pir/ 2>/dev/null || true
+          # Each target gets a seed of the matching input type: the PIR decoder
+          # mutates a valid encoded envelope; the RON loader mutates valid source.
+          mkdir -p fuzz/corpus/decode_pir fuzz/corpus/decode_ron
+          cp -n fuzz/seeds/valid_envelope.bin fuzz/corpus/decode_pir/ 2>/dev/null || true
+          cp -n fuzz/seeds/valid.ron fuzz/corpus/decode_ron/ 2>/dev/null || true
 
-      - name: Run fuzz target
+      # Split the time budget across the two targets so a PR smoke run still
+      # exercises both. --target gnu avoids cargo-fuzz's musl default (static
+      # libc is incompatible with the sanitizer).
+      - name: Run fuzz target — decode_pir
         run: |
-          # --target gnu: avoid cargo-fuzz's musl default (static libc is
-          # incompatible with the sanitizer). gnu is dynamically linked.
           cargo fuzz run decode_pir --target x86_64-unknown-linux-gnu -- \
+            -max_total_time=${{ steps.dur.outputs.seconds }} \
+            -rss_limit_mb=2048
+
+      - name: Run fuzz target — decode_ron
+        run: |
+          cargo fuzz run decode_ron --target x86_64-unknown-linux-gnu -- \
             -max_total_time=${{ steps.dur.outputs.seconds }} \
             -rss_limit_mb=2048
 

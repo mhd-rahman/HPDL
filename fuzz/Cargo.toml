@@ -13,10 +13,18 @@ cargo-fuzz = true
 [dependencies]
 libfuzzer-sys = "0.4"
 hpdl-pir = { path = "../crates/hpdl-pir" }
+hpdl-ron = { path = "../crates/hpdl-ron" }
 
 [[bin]]
 name = "decode_pir"
 path = "fuzz_targets/decode_pir.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "decode_ron"
+path = "fuzz_targets/decode_ron.rs"
 test = false
 doc = false
 bench = false
