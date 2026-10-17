@@ -69,9 +69,12 @@ pub enum Error {
 
 impl From<ron::error::SpannedError> for Error {
     fn from(err: ron::error::SpannedError) -> Self {
+        // ron 0.12 replaced `SpannedError::position` (a single `Position`) with
+        // `span: Span { start: Position, end: Position }`. The start of the span
+        // is the equivalent of the former single position.
         Self::ParseWithSpan {
             error: err.code.to_string(),
-            position: format!("{}:{}", err.position.line, err.position.col),
+            position: format!("{}:{}", err.span.start.line, err.span.start.col),
         }
     }
 }
