@@ -29,7 +29,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@v4
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@master
@@ -38,7 +38,7 @@ jobs:
           components: rustfmt, clippy
 
       - name: Cache cargo registry and build artifacts
-        uses: actions/cache@v6
+        uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/registry/index/
@@ -73,7 +73,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@v4
 
       - name: Install MSRV toolchain
         uses: dtolnay/rust-toolchain@master
@@ -81,7 +81,7 @@ jobs:
           toolchain: ${{ env.RUST_MSRV }}
 
       - name: Cache cargo registry and build artifacts
-        uses: actions/cache@v6
+        uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/registry/index/
@@ -114,7 +114,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@v4
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@master
@@ -122,7 +122,7 @@ jobs:
           toolchain: ${{ env.RUST_VERSION }}
 
       - name: Cache cargo registry and build artifacts
-        uses: actions/cache@v6
+        uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/registry/index/
@@ -138,7 +138,7 @@ jobs:
         run: cargo run -p hpdl-compiler --example emit_digests > digests-${{ runner.os }}.txt
 
       - name: Upload digests
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: digests-${{ runner.os }}
           path: digests-${{ runner.os }}.txt
@@ -150,7 +150,7 @@ jobs:
 
     steps:
       - name: Download all digest artifacts
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@v4
         with:
           path: digests
 
@@ -184,7 +184,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@v4
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@master
@@ -210,7 +210,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@v4
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@master
