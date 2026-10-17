@@ -1,7 +1,7 @@
 //! Demonstrates how the validator reports typed, stable diagnostics for a
 //! definition that violates several rules at once.
 //!
-//! Run with: `cargo run -p hpdl-sema --example error_handling`
+//! Run with: `cargo run -p hpdl-sema --example sema_error_handling`
 
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 

@@ -30,7 +30,7 @@ Runnable examples:
 ```sh
 cargo run -p hpdl-ron --example basic_usage
 cargo run -p hpdl-ron --example validation_workflow
-cargo run -p hpdl-ron --example error_handling
+cargo run -p hpdl-ron --example ron_error_handling
 ```
 
 ## Failure modes

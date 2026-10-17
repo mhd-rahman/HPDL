@@ -48,7 +48,7 @@ See the runnable examples:
 
 ```sh
 cargo run -p hpdl-sema --example basic_validation
-cargo run -p hpdl-sema --example error_handling
+cargo run -p hpdl-sema --example sema_error_handling
 ```
 
 ## Diagnostics

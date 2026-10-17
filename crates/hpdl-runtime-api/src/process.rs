@@ -102,11 +102,7 @@ impl ProcessContract {
             return false;
         }
         // Covered iff it is not among the uncovered writes.
-        !self
-            .read_write
-            .uncovered_writes()
-            .iter()
-            .any(|w| *w == path)
+        !self.read_write.uncovered_writes().contains(&path)
     }
 
     /// Whether the process is live at `tick` (`tick >= activation_tick`,

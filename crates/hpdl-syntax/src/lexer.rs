@@ -191,7 +191,7 @@ impl Lexer {
             // Peek ahead to ensure it's not just a trailing dot
             if self.pos + 1 < self.source.len() {
                 let next_char = self.source.chars().nth(self.pos + 1);
-                if next_char.map_or(false, |c| c.is_ascii_digit()) {
+                if next_char.is_some_and(|c| c.is_ascii_digit()) {
                     is_float = true;
                     self.advance(); // Skip '.'
 
