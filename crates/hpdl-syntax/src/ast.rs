@@ -106,6 +106,40 @@ pub enum ValueNode {
         /// Source span.
         span: SourceSpan,
     },
+
+    /// An anonymous tuple: `(a, b)`. Used for RON-style pair literals such as a
+    /// cut point `(25, "degraded")` or a composition component `(GasId("n2"),
+    /// 780000)`.
+    Tuple {
+        /// Tuple elements.
+        elements: Vec<ValueNode>,
+        /// Source span.
+        span: SourceSpan,
+    },
+
+    /// An enum variant or newtype, mirroring RON's `Name` / `Name(args)` forms.
+    ///
+    /// Covers three shapes that the model's closed enums and validated newtypes
+    /// use (see ADR 0010):
+    /// - **Unit variant:** `Planet`, `EclipticJ2000`, `Absent` → `args` empty,
+    ///   `fields` empty.
+    /// - **Positional newtype / tuple variant:** `Custom("arcane")`,
+    ///   `Present(Microbial)`, `Capability("state.x.write")` → `args` populated.
+    /// - **Struct variant:** `ModuleRef(name: "a", version: "1.0")` → `fields`
+    ///   populated.
+    ///
+    /// A given variant uses at most one of `args` / `fields`; both empty means a
+    /// unit variant.
+    Variant {
+        /// The variant / newtype name (an identifier or contextual keyword).
+        name: String,
+        /// Positional arguments (tuple/newtype form).
+        args: Vec<ValueNode>,
+        /// Named fields (struct-variant form).
+        fields: Vec<FieldNode>,
+        /// Source span.
+        span: SourceSpan,
+    },
 }
 
 impl ValueNode {
@@ -117,7 +151,9 @@ impl ValueNode {
             | Self::Float { span, .. }
             | Self::Boolean { span, .. }
             | Self::List { span, .. }
-            | Self::Object { span, .. } => *span,
+            | Self::Object { span, .. }
+            | Self::Tuple { span, .. }
+            | Self::Variant { span, .. } => *span,
         }
     }
 }

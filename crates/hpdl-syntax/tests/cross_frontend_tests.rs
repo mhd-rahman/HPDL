@@ -16,14 +16,16 @@
 //! `hpdl-syntax`, which can take `hpdl-ron` as a dev-dependency safely because
 //! nothing depends on `hpdl-syntax`.
 //!
-//! ## Equivalence surface (honest scope)
+//! ## Equivalence surface
 //!
-//! Both frontends currently populate `id`, `physical` properties, and `traits`.
-//! The native HPDL converter does not yet extract `modules`/`statuses`/`actions`/
-//! `migrations` from source (documented in `hpdl-syntax/GRAMMAR.md`), so these
-//! tests exercise the shared subset. When the native converter gains those, this
-//! file should grow matching cases. This boundary is asserted explicitly by
-//! `shared_subset_boundary_is_documented` below.
+//! Native HPDL grammar v1.0 is ratified at **full parity** with the serde-reachable
+//! model surface (ADR 0010): `id`, `physical`, `traits`, `modules`, `statuses`
+//! (incl. the optional vitality fields), `actions` (incl. capabilities),
+//! `migrations`, and the optional `identity`/`parent`/`orbit`/`rotation`/
+//! `environment` blocks. The `comprehensive_parity_*` tests exercise all of them.
+//!
+//! World laws are out of both serialized frontends (`#[serde(skip)]`, ADR 0005 /
+//! ADR 0010), so they are not part of the equivalence surface.
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::indexing_slicing)]
 
@@ -209,42 +211,162 @@ fn diagnostic_order_matches_across_frontends() {
     );
 }
 
-/// Documents the current shared-subset boundary (an intentional difference): the
-/// native HPDL converter does not yet extract modules/statuses/actions/migrations
-/// from source, whereas RON does. This test asserts that boundary so that when the
-/// native converter is extended, the stale assumption fails loudly and the
-/// equivalence suite above is expanded to cover the new surface.
-#[test]
-fn shared_subset_boundary_is_documented() {
-    // RON with a status declaration populates it; HPDL (currently) does not.
-    const RON_WITH_STATUS: &str = r#"
+/// A comprehensive definition exercising every block native HPDL grammar v1.0
+/// now supports, expressed in both formats. Proves full-parity extraction
+/// (ADR 0010), replacing the old "shared subset" boundary test.
+mod comprehensive {
+    pub const HPDL: &str = r#"
+        language hpdl "1.0";
+        planet terra {
+            id: "terra",
+            physical: {
+                mass_kg: 5972000000000000000000000,
+                radius_m: 6371000,
+            },
+            traits: { tags: ["terrestrial"] },
+            modules: [ ModuleRef(name: "hpdl/stdlib/atmo", version: "1.0") ],
+            statuses: [
+                StatusDeclaration(name: "Vitality", scale_min: 0, scale_max: 100),
+            ],
+            actions: [
+                ActionDeclaration(
+                    name: "Terraform",
+                    reads: ["state.atmosphere.co2"],
+                    writes: ["state.atmosphere.co2"],
+                    capabilities: [ Capability("state.atmosphere.write") ],
+                ),
+            ],
+            migrations: [
+                MigrationDeclaration(name: "add-ocean", from_version: 1, to_version: 2),
+            ],
+            identity: Planet,
+            parent: ParentRef(target: BodyId("sol"), frame: EclipticJ2000),
+            orbit: KeplerianElements(
+                semi_major_axis_m: 149598000000,
+                eccentricity_micro: 16700,
+                inclination_mdeg: 0,
+                lon_ascending_node_mdeg: 174000,
+                arg_periapsis_mdeg: 288000,
+                mean_anomaly_epoch_mdeg: 0,
+                frame: EclipticJ2000,
+            ),
+            rotation: RotationModel(
+                sidereal_period_s: 86164,
+                axial_tilt_mdeg: 23440,
+                frame: EclipticJ2000,
+            ),
+            environment: EnvironmentDefinition(
+                biosphere: Present(Microbial),
+                atmosphere: AtmosphereProfile(
+                    surface_pressure_pa: 101325,
+                    composition: Composition(
+                        components: [ (GasId("n2"), 780000), (GasId("o2"), 220000) ],
+                        tolerance_ppm: 0,
+                    ),
+                ),
+                thermal: ThermalProfile(mean_mk: 288000, min_mk: 184000, max_mk: 331000),
+                hydrosphere: Hydrosphere(surface_coverage_ppm: 708000),
+                cryosphere: Cryosphere(surface_coverage_ppm: 100000),
+            ),
+        }
+    "#;
+
+    pub const RON: &str = r#"
         PlanetDefinition(
             language_version: "1.0",
             body: CelestialBody(
-                id: BodyId("s"),
+                id: BodyId("terra"),
                 properties: PhysicalProperties(
-                    mass_kg: None, radius_m: None, surface_gravity_mms2: None,
-                    orbital_period_s: None, rotation_period_s: None,
+                    mass_kg: Some(5972000000000000000000000),
+                    radius_m: Some(6371000),
+                    surface_gravity_mms2: None,
+                    orbital_period_s: None,
+                    rotation_period_s: None,
                 ),
-                traits: TraitSet([]),
-                modules: [],
-                statuses: [StatusDeclaration(name: "Vitality", scale_min: 0, scale_max: 100)],
-                actions: [], migrations: [],
+                traits: TraitSet(["terrestrial"]),
+                modules: [ ModuleRef(name: "hpdl/stdlib/atmo", version: "1.0") ],
+                statuses: [
+                    StatusDeclaration(name: "Vitality", scale_min: 0, scale_max: 100),
+                ],
+                actions: [
+                    ActionDeclaration(
+                        name: "Terraform",
+                        reads: ["state.atmosphere.co2"],
+                        writes: ["state.atmosphere.co2"],
+                        capabilities: [ Capability("state.atmosphere.write") ],
+                    ),
+                ],
+                migrations: [
+                    MigrationDeclaration(name: "add-ocean", from_version: 1, to_version: 2),
+                ],
+                identity: Some(Planet),
+                parent: Some(ParentRef(target: BodyId("sol"), frame: EclipticJ2000)),
+                orbit: Some(KeplerianElements(
+                    semi_major_axis_m: 149598000000,
+                    eccentricity_micro: 16700,
+                    inclination_mdeg: 0,
+                    lon_ascending_node_mdeg: 174000,
+                    arg_periapsis_mdeg: 288000,
+                    mean_anomaly_epoch_mdeg: 0,
+                    frame: EclipticJ2000,
+                )),
+                rotation: Some(RotationModel(
+                    sidereal_period_s: 86164,
+                    axial_tilt_mdeg: 23440,
+                    frame: EclipticJ2000,
+                )),
+                environment: Some(EnvironmentDefinition(
+                    biosphere: Present(Microbial),
+                    atmosphere: Some(AtmosphereProfile(
+                        surface_pressure_pa: 101325,
+                        composition: Composition(
+                            components: { GasId("n2"): 780000, GasId("o2"): 220000 },
+                            tolerance_ppm: 0,
+                        ),
+                    )),
+                    thermal: Some(ThermalProfile(mean_mk: 288000, min_mk: 184000, max_mk: 331000)),
+                    hydrosphere: Some(Hydrosphere(surface_coverage_ppm: 708000, dominant_liquid: None)),
+                    cryosphere: Some(Cryosphere(surface_coverage_ppm: 100000)),
+                    assets: {},
+                )),
             )
         )
     "#;
-    const HPDL_WITH_STATUS_BLOCK: &str = r#"
-        language hpdl "1.0";
-        planet s { id: "s" }
-    "#;
+}
 
-    let ron = via_ron(RON_WITH_STATUS);
-    let hpdl = via_hpdl(HPDL_WITH_STATUS_BLOCK);
-
-    assert_eq!(ron.body().statuses().len(), 1, "RON extracts the status");
+#[test]
+fn comprehensive_parity_models_are_identical() {
+    let from_hpdl = via_hpdl(comprehensive::HPDL);
+    let from_ron = via_ron(comprehensive::RON);
     assert_eq!(
-        hpdl.body().statuses().len(),
-        0,
-        "native HPDL does not yet extract statuses — documented boundary (GRAMMAR.md)"
+        from_hpdl, from_ron,
+        "full-surface HPDL and RON sources must produce identical models"
     );
+}
+
+#[test]
+fn comprehensive_parity_validates_identically() {
+    let hpdl_result = validate_rendered(via_hpdl(comprehensive::HPDL));
+    let ron_result = validate_rendered(via_ron(comprehensive::RON));
+    assert_eq!(
+        hpdl_result, ron_result,
+        "full-surface equivalent sources must validate identically"
+    );
+}
+
+/// The native frontend extracts every block (the inverse of the retired
+/// "native HPDL extracts zero statuses" boundary assertion).
+#[test]
+fn native_hpdl_extracts_the_full_surface() {
+    let def = via_hpdl(comprehensive::HPDL);
+    let body = def.body();
+    assert_eq!(body.modules().len(), 1);
+    assert_eq!(body.statuses().len(), 1);
+    assert_eq!(body.actions().len(), 1);
+    assert_eq!(body.migrations().len(), 1);
+    assert!(body.identity().is_some());
+    assert!(body.parent().is_some());
+    assert!(body.orbit().is_some());
+    assert!(body.rotation().is_some());
+    assert!(body.environment().is_some());
 }

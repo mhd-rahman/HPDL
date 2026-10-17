@@ -42,14 +42,36 @@ fn options_with_lock(lock: Option<&str>) -> Result<CompileOptions, Outcome> {
     }
 }
 
-/// Compile a source file, returning either the result or a rendered failure.
+/// The frontend to use for a source file, chosen by extension.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Frontend {
+    /// Native `.hpdl` source.
+    Hpdl,
+    /// RON source (the default for any non-`.hpdl` extension).
+    Ron,
+}
+
+/// Pick the frontend from the file extension: `.hpdl` → native, everything else
+/// (`.ron` and anything unrecognized) → RON. Case-insensitive on the extension.
+fn frontend_for(path: &str) -> Frontend {
+    match Path::new(path).extension().and_then(|e| e.to_str()) {
+        Some(ext) if ext.eq_ignore_ascii_case("hpdl") => Frontend::Hpdl,
+        _ => Frontend::Ron,
+    }
+}
+
+/// Compile a source file, dispatching to the native or RON frontend by extension
+/// and returning either the result or a rendered failure.
 fn compile(file: &str, lock: Option<&str>, format: Format) -> Result<CompileResult, Outcome> {
     let source = read_source(file)?;
     let options = options_with_lock(lock)?;
     let name = source_name(file);
-    Compiler::new(options)
-        .compile_ron_str(&name, &source)
-        .map_err(|e: Error| Outcome::failure(render::render_error(&e, format)))
+    let compiler = Compiler::new(options);
+    let compiled = match frontend_for(file) {
+        Frontend::Hpdl => compiler.compile_hpdl_str(&name, &source),
+        Frontend::Ron => compiler.compile_ron_str(&name, &source),
+    };
+    compiled.map_err(|e: Error| Outcome::failure(render::render_error(&e, format)))
 }
 
 /// `check <file>`.
@@ -110,4 +132,41 @@ fn to_hex(bytes: &[u8]) -> String {
         out.push_str(&format!("{b:02x}"));
     }
     out
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::indexing_slicing)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn frontend_dispatch_by_extension() {
+        assert_eq!(frontend_for("planet.hpdl"), Frontend::Hpdl);
+        assert_eq!(frontend_for("planet.HPDL"), Frontend::Hpdl);
+        assert_eq!(frontend_for("dir/sub/earth.hpdl"), Frontend::Hpdl);
+        assert_eq!(frontend_for("planet.ron"), Frontend::Ron);
+        assert_eq!(frontend_for("planet.txt"), Frontend::Ron);
+        assert_eq!(frontend_for("noext"), Frontend::Ron);
+    }
+
+    #[test]
+    fn hpdl_source_compiles_through_cli_compile() {
+        const HPDL: &str = r#"
+            language hpdl "1.0";
+            planet p {
+                id: "p",
+                physical: { mass_kg: 1000000000000000000000000, radius_m: 1000000 },
+            }
+        "#;
+        // Write to a temp .hpdl file so the extension dispatch picks the native path.
+        let dir = std::env::temp_dir();
+        let path = dir.join("hpdl_cli_dispatch_test.hpdl");
+        std::fs::write(&path, HPDL).unwrap();
+        let path_str = path.to_str().unwrap();
+
+        let result = compile(path_str, None, Format::Text).expect("hpdl should compile via CLI");
+        assert!(result.envelope().verify_hash());
+
+        std::fs::remove_file(&path).ok();
+    }
 }

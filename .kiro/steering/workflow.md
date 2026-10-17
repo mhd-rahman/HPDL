@@ -11,10 +11,10 @@ inclusion: always
 | `hpdl-sema` | active (feature 03) |
 | `hpdl-ron` | active (feature 04) |
 | `hpdl-pir` | active (feature 02) |
-| `hpdl-compiler` | active (features 06, 14) — pipeline + authoritative package resolution |
+| `hpdl-compiler` | active (features 06, 14) — pipeline + authoritative package resolution; both frontends wired (`compile_ron_str`, `compile_hpdl_str`) |
 | `hpdl-cli` | active (feature 15) — check/build/inspect/export, diagnostic presentation |
 | `hpdl-runtime-api` | active (features 10, 12, 13) — runtime + migration contracts; executor is external (mocked in tests) |
-| `hpdl-syntax` | active (feature 05) |
+| `hpdl-syntax` | active (feature 05) — native grammar v1.0 ratified at full RON parity (ADR 0010); world laws out of scope |
 | `hpdl-lsp` | deferred |
 
 Do NOT scaffold crates marked deferred unless the task explicitly asks.

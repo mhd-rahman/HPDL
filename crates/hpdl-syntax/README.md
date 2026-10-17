@@ -4,9 +4,11 @@ Native `.hpdl` lexer, parser, and AST→model converter. Parses HPDL source into
 same `hpdl_model::PlanetDefinition` the RON frontend produces, and routes it through
 the shared `hpdl-sema` validator so both frontends share identical semantics.
 
-> **Grammar status:** the HPDL language grammar is **not yet ratified**. This crate
-> implements a concrete subset so authoring and tests have a target. See
-> [`GRAMMAR.md`](./GRAMMAR.md). Treat all syntax as illustrative.
+> **Grammar status:** native HPDL grammar **v1.0 is ratified** at full parity with
+> the RON frontend (see [`GRAMMAR.md`](./GRAMMAR.md) and
+> [ADR 0010](../../docs/rfcs/0010-native-hpdl-grammar-v1.md)). Equivalent `.hpdl` and
+> `.ron` sources produce an identical model, identical validator diagnostics, and
+> byte-identical canonical PIR. World laws are out of scope for v1.0.
 
 ## Pipeline
 
@@ -53,13 +55,18 @@ Oversized source fails closed with `Error::Security` before any parsing work.
 `#![forbid(unsafe_code)]`; `unwrap`/`expect`/panicking-index are denied in non-test
 code.
 
-## Known limitations
+## Surface and limitations
 
-- `modules`, `statuses`, `actions`, and `migrations` are not yet extracted from HPDL
-  source (the converter returns empty collections). The RON frontend supports these
-  today; native syntax will follow once the grammar is ratified.
-- Unit suffixes after numbers are accepted but not yet used to rescale; physical values
-  must be given as integers in canonical units.
+- Full parity with RON: `id`, `physical`, `traits`, `modules`, `statuses` (incl.
+  the optional vitality fields), `actions` (incl. capabilities), `migrations`, and
+  the optional `identity`/`parent`/`orbit`/`rotation`/`environment` blocks.
+- Enum variants and newtypes are spelled as in RON (`Planet`, `Custom("x")`,
+  `Present(Microbial)`, `ModuleRef(name:, version:)`); pairs are tuples `(a, b)`.
+- Unit suffixes after numbers are advisory and never rescale; physical values must be
+  given as integers in canonical units. Floats are rejected on canonical fields.
+- **World laws** are out of scope for grammar v1.0 (the model field is
+  `#[serde(skip)]`; coupled to a future PIR format decision — ADR 0005 / 0010).
+- `\uXXXX` escapes and non-decimal number bases are reserved (rejected) in v1.0.
 
 ## Examples
 

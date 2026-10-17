@@ -11,10 +11,11 @@ publish = false                 # internal orchestration crate, not a published 
 # the shared semantic validator (hpdl-sema), and canonical PIR emission (hpdl-pir).
 # It must NOT be depended upon by hpdl-pir or hpdl-runtime-api.
 [dependencies]
-hpdl-model = { path = "../hpdl-model" }
-hpdl-ron  = { path = "../hpdl-ron" }
-hpdl-sema = { path = "../hpdl-sema" }
-hpdl-pir  = { path = "../hpdl-pir" }
+hpdl-model  = { path = "../hpdl-model" }
+hpdl-ron    = { path = "../hpdl-ron" }
+hpdl-syntax = { path = "../hpdl-syntax" }
+hpdl-sema   = { path = "../hpdl-sema" }
+hpdl-pir    = { path = "../hpdl-pir" }
 thiserror = "2"
 
 [features]

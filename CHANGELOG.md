@@ -8,6 +8,79 @@ for published crates (`hpdl-pir`, and others as they stabilize).
 
 ---
 
+## [Unreleased] — Feature 05: Native HPDL grammar v1.0 ratified (2026-10-18)
+
+Ratifies the native `.hpdl` grammar at **full parity** with the RON frontend
+(scope A2) and lifts its "illustrative / not-yet-ratified" status. Recorded in
+`docs/rfcs/0010-native-hpdl-grammar-v1.md`.
+
+### Added — `hpdl-syntax` crate
+
+- **Variant/newtype value syntax** (`ValueNode::Variant`) and **anonymous tuples**
+  (`ValueNode::Tuple`), mirroring RON: `Planet`, `Custom("x")`, `Present(Microbial)`,
+  `ModuleRef(name:, version:)`, `None`/`Some(x)`, and pairs `(25, "degraded")`. No new
+  lexer tokens — `(`/`)` already lexed; this is a pure parser/AST addition.
+- **Full converter wiring** (`convert.rs`): native HPDL now extracts `modules`,
+  `statuses` (incl. `dimension`/`baseline`/`evaluator`/`cut_points`/`window`),
+  `actions` (incl. `capabilities`, with the `status.*` write prohibition enforced),
+  `migrations`, and the optional `identity`/`parent`/`orbit`/`rotation`/`environment`
+  blocks — the previously-stubbed extractors are implemented.
+- **Normative `GRAMMAR.md` v1.0** and a `comprehensive.hpdl` example exercising the
+  full surface. Example/README stale "not-yet-ratified" notes corrected.
+- Negative tests (unknown enum variant, float in an integer field, `None`/`Some`
+  sugar) and cross-frontend parity tests covering the full surface.
+
+### Fixed — `hpdl-syntax` lexer
+
+- **Byte/char position desync on multibyte UTF-8 input.** `Lexer::current_char`
+  treated the byte offset `pos` as a `char` index (`chars().nth(pos)`), so any
+  multibyte character (e.g. an em-dash in a comment or string) desynced the cursor
+  and could raise a spurious `Unexpected character: '\0'` near EOF. `current_char`
+  now decodes at the byte offset via a non-panicking `get(pos..)`, and the comment /
+  float-peek lookaheads use a consistent `char_after` helper. Regression tests added.
+
+### Changed — `hpdl-compiler` crate
+
+- Wired the native frontend seam: new `frontend::decode_hpdl` and a public
+  `Compiler::compile_hpdl_str(name, source)` entry point, mirroring the RON path.
+  Added the `hpdl-compiler → hpdl-syntax` dependency edge (architecture-sanctioned;
+  no cycle).
+- New `tests/hpdl_ron_equivalence.rs`: proves native `.hpdl` and RON compile to
+  **byte-identical canonical PIR** and identical content hashes over the full surface.
+
+### Changed — `hpdl-cli` crate
+
+- The CLI now dispatches by file extension: `.hpdl` sources route through the native
+  frontend (`compile_hpdl_str`), everything else (`.ron` and unrecognized) through
+  the RON frontend. `check`/`build`/`inspect`/`export` all work on native `.hpdl`
+  files. Added a `minimal.hpdl` fixture and tests, including one asserting the
+  `.hpdl` and `.ron` fixtures export identical canonical PIR via the CLI.
+
+### Added — repository
+
+- Root `README.md` and an equivalent example planet pair under `examples/`
+  (`earth.hpdl` + `earth.ron`) that compile to byte-identical PIR.
+
+### Decisions (ADR 0010)
+
+- **Enum/newtype spelling = RON-identical** (`Variant` / `Variant(args)` /
+  `Variant(field: value)`), so the two frontends stay model-identical.
+- **World laws out of native v1.0** — the model's `world_laws` is `#[serde(skip)]`
+  (ADR 0005); neither serialized frontend can express them, and doing so is coupled to
+  a PIR format-version decision. Deferred to a later grammar minor version.
+- Open syntax questions resolved: optional whitespace before unit suffix (advisory,
+  no rescale); string escapes limited to `\n \t \r \\ \"` (`\uXXXX` reserved); decimal
+  numbers only (hex/bin/oct reserved); trailing commas optional.
+
+### Compatibility
+
+- **No PIR format change.** Native HPDL lowers to existing PIR v2.0 bytes;
+  `PirVersion::CURRENT` unchanged; no golden PIR vectors regenerated.
+- Grammar version `1.0` is now a committed contract; additive syntax → `1.1`,
+  breaking → `2.0` (independent of crate and PIR versions).
+
+---
+
 ## [Unreleased]
 
 ### Added

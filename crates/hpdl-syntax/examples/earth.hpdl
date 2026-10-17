@@ -1,5 +1,5 @@
 // An Earth-like planet with declared physical properties and traits.
-// Illustrative subset of the (not-yet-ratified) HPDL grammar.
+// Native HPDL grammar v1.0 (ratified — see GRAMMAR.md / ADR 0010).
 language hpdl "1.0";
 
 planet terra_nova {

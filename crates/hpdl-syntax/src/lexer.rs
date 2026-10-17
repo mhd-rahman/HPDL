@@ -190,8 +190,8 @@ impl Lexer {
         if !self.is_at_end() && self.current_char() == '.' {
             // Peek ahead to ensure it's not just a trailing dot
             if self.pos + 1 < self.source.len() {
-                let next_char = self.source.chars().nth(self.pos + 1);
-                if next_char.is_some_and(|c| c.is_ascii_digit()) {
+                let next_char = self.char_after(self.pos);
+                if next_char.is_ascii_digit() {
                     is_float = true;
                     self.advance(); // Skip '.'
 
@@ -258,7 +258,7 @@ impl Lexer {
                 '/' => {
                     // Check for comment
                     if self.pos + 1 < self.source.len() {
-                        match self.source.chars().nth(self.pos + 1) {
+                        match Some(self.char_after(self.pos)) {
                             Some('/') => {
                                 // Line comment
                                 self.advance(); // Skip first '/'
@@ -275,7 +275,7 @@ impl Lexer {
                                 while !self.is_at_end() {
                                     if self.current_char() == '*'
                                         && self.pos + 1 < self.source.len()
-                                        && self.source.chars().nth(self.pos + 1) == Some('/')
+                                        && self.char_after(self.pos) == '/'
                                     {
                                         self.advance(); // Skip '*'
                                         self.advance(); // Skip '/'
@@ -296,8 +296,29 @@ impl Lexer {
     }
 
     /// Get the current character.
+    ///
+    /// `pos` is a **byte** offset (spans are byte offsets), so we decode the
+    /// character starting at that byte rather than treating `pos` as a char
+    /// index — the two diverge as soon as the source contains any multibyte
+    /// UTF-8 character (e.g. an em-dash in a comment). Returns `'\0'` at or past
+    /// end of input.
     fn current_char(&self) -> char {
-        self.source.chars().nth(self.pos).unwrap_or('\0')
+        self.char_at(self.pos)
+    }
+
+    /// Decode the character starting at byte offset `at`, or `'\0'` if `at` is at
+    /// or past the end (or not on a char boundary). Non-panicking.
+    fn char_at(&self, at: usize) -> char {
+        self.source
+            .get(at..)
+            .and_then(|s| s.chars().next())
+            .unwrap_or('\0')
+    }
+
+    /// Decode the character immediately *after* the one at byte offset `at`.
+    fn char_after(&self, at: usize) -> char {
+        let next = at.saturating_add(self.char_at(at).len_utf8());
+        self.char_at(next)
     }
 
     /// Advance to the next character.
@@ -407,5 +428,32 @@ mod tests {
 
         let token2 = lexer.next_token().unwrap();
         assert_eq!(token2.kind, TokenKind::Body);
+    }
+
+    #[test]
+    fn multibyte_chars_in_comments_do_not_desync_position() {
+        // Regression: `pos` is a byte offset. A multibyte char (em-dash, 3 bytes
+        // in UTF-8) in a comment previously desynced `current_char`/`is_at_end`
+        // and produced a spurious `'\0'` error near EOF. The tokens after the
+        // comment must still lex, and lexing must terminate cleanly at EOF.
+        let src = "// ratified — see ADR 0010 (em-dash: — ✓)\nplanet body".to_string();
+        let mut lexer = Lexer::new(src);
+        let tokens = lexer.lex_all().expect("multibyte comment must lex cleanly");
+        let kinds: Vec<TokenKind> = tokens.iter().map(|t| t.kind).collect();
+        assert_eq!(
+            kinds,
+            vec![TokenKind::Planet, TokenKind::Body, TokenKind::Eof]
+        );
+    }
+
+    #[test]
+    fn multibyte_char_in_string_lexes() {
+        // A multibyte char inside a string literal must round-trip without a
+        // position desync on the following tokens.
+        let mut lexer = Lexer::new("\"arcane—aether\" planet".to_string());
+        let s = lexer.next_token().unwrap();
+        assert_eq!(s.kind, TokenKind::String);
+        let p = lexer.next_token().unwrap();
+        assert_eq!(p.kind, TokenKind::Planet);
     }
 }

@@ -330,11 +330,115 @@ impl Parser {
 
             TokenKind::LeftBrace => self.parse_object(),
 
+            // A `(` in value position (not preceded by a variant name) is an
+            // anonymous tuple, e.g. a `(value, label)` cut-point pair.
+            TokenKind::LeftParen => self.parse_tuple(),
+
+            // A bare identifier or contextual keyword in value position is an
+            // enum variant / newtype (RON parity; see ADR 0010), e.g. `Planet`,
+            // `Custom("x")`, `ModuleRef(name: "a", version: "1.0")`.
+            TokenKind::Identifier
+            | TokenKind::Body
+            | TokenKind::Physical
+            | TokenKind::Traits
+            | TokenKind::Status
+            | TokenKind::Action
+            | TokenKind::Module
+            | TokenKind::Migration => self.parse_variant(),
+
             _ => Err(Error::parse(format!(
                 "Expected value, got {:?}",
                 token.kind
             ))),
         }
+    }
+
+    /// Parse an enum variant or newtype: `Name`, `Name(v1, v2)`, or
+    /// `Name(field: v, …)`.
+    ///
+    /// The name token is an identifier or a contextual keyword. An opening paren
+    /// introduces arguments, which are either a positional value list or a named
+    /// field list; the two forms are disambiguated by looking for `identifier :`
+    /// at the start. An empty `Name()` is treated as a unit variant.
+    fn parse_variant(&mut self) -> Result<ValueNode, Error> {
+        let name_token = self.advance();
+        let name = name_token.text.clone();
+        let start = name_token.span;
+        let mut end = start;
+
+        let mut args = Vec::new();
+        let mut fields = Vec::new();
+
+        if self.check(TokenKind::LeftParen) {
+            self.expect(TokenKind::LeftParen)?;
+
+            if !self.check(TokenKind::RightParen) {
+                if self.looks_like_named_field() {
+                    // Struct-variant form: `Name(field: value, …)`.
+                    loop {
+                        fields.push(self.parse_field()?);
+                        if self.check(TokenKind::Comma) {
+                            self.advance();
+                            if self.check(TokenKind::RightParen) {
+                                break;
+                            }
+                        } else {
+                            break;
+                        }
+                    }
+                } else {
+                    // Positional / newtype form: `Name(value, …)`.
+                    loop {
+                        args.push(self.parse_value()?);
+                        if self.check(TokenKind::Comma) {
+                            self.advance();
+                            if self.check(TokenKind::RightParen) {
+                                break;
+                            }
+                        } else {
+                            break;
+                        }
+                    }
+                }
+            }
+
+            self.expect(TokenKind::RightParen)?;
+            end = self.previous().span;
+        }
+
+        Ok(ValueNode::Variant {
+            name,
+            args,
+            fields,
+            span: start.union(end),
+        })
+    }
+
+    /// Lookahead: is the next construct a named field (`identifier :`) rather
+    /// than a positional value? Used to disambiguate struct- vs tuple-variant
+    /// argument lists. Does not consume tokens.
+    fn looks_like_named_field(&self) -> bool {
+        let is_name = matches!(
+            self.current().kind,
+            TokenKind::Identifier
+                | TokenKind::Body
+                | TokenKind::Physical
+                | TokenKind::Traits
+                | TokenKind::Status
+                | TokenKind::Action
+                | TokenKind::Module
+                | TokenKind::Migration
+        );
+        if !is_name {
+            return false;
+        }
+        matches!(self.peek_kind(1), Some(TokenKind::Colon))
+    }
+
+    /// Peek at the token `offset` positions ahead without consuming. Returns
+    /// `None` past the end of the stream.
+    fn peek_kind(&self, offset: usize) -> Option<TokenKind> {
+        self.tokens.get(self.pos + offset).map(|t| t.kind)
     }
 
     /// Parse a number (with optional unit).
@@ -406,6 +510,35 @@ impl Parser {
         let end = self.previous().span;
 
         Ok(ValueNode::List {
+            elements,
+            span: start.union(end),
+        })
+    }
+
+    /// Parse an anonymous tuple: `(value1, value2, …)`.
+    fn parse_tuple(&mut self) -> Result<ValueNode, Error> {
+        let start = self.current().span;
+        self.expect(TokenKind::LeftParen)?;
+
+        let mut elements = Vec::new();
+        if !self.check(TokenKind::RightParen) {
+            loop {
+                elements.push(self.parse_value()?);
+                if self.check(TokenKind::Comma) {
+                    self.advance();
+                    if self.check(TokenKind::RightParen) {
+                        break;
+                    }
+                } else {
+                    break;
+                }
+            }
+        }
+
+        self.expect(TokenKind::RightParen)?;
+        let end = self.previous().span;
+
+        Ok(ValueNode::Tuple {
             elements,
             span: start.union(end),
         })

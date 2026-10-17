@@ -1,0 +1,74 @@
+// A comprehensive planet exercising the full native HPDL grammar v1.0 surface:
+// physical, traits, statuses, actions (+capabilities), migrations, and the
+// optional orbital + environment blocks. Enum variants and newtypes are spelled
+// exactly as in RON (see GRAMMAR.md / ADR 0010).
+//
+// Modules are intentionally omitted here: a declared module needs a lockfile to
+// resolve in the compiler, so leaving it out keeps this example clean to both
+// parse and semantically validate. (Module parity with RON is covered by the
+// cross-frontend model tests.)
+language hpdl "1.0";
+
+planet terra_nova {
+    id: "terra-nova",
+
+    physical: {
+        mass_kg: 5972000000000000000000000,  // ~Earth mass, kg
+        radius_m: 6371000,
+    },
+
+    traits: { tags: ["terrestrial", "habitable-zone"] },
+
+    // Derived-status declarations (never written by actions).
+    statuses: [
+        StatusDeclaration(name: "Vitality", scale_min: 0, scale_max: 100),
+    ],
+
+    // Actions declare their reads/writes and the capability backing each write.
+    actions: [
+        ActionDeclaration(
+            name: "AdjustGreenhouse",
+            reads: ["state.atmosphere.co2"],
+            writes: ["state.atmosphere.co2"],
+            capabilities: [ Capability("state.atmosphere.write") ],
+        ),
+    ],
+
+    // Forward-only schema migration.
+    migrations: [
+        MigrationDeclaration(name: "add-cryosphere", from_version: 1, to_version: 2),
+    ],
+
+    // Orbital declarations (static data; no propagation is performed).
+    identity: Planet,
+    parent: ParentRef(target: BodyId("sol"), frame: EclipticJ2000),
+    orbit: KeplerianElements(
+        semi_major_axis_m: 149598000000,  // ~1 AU, metres
+        eccentricity_micro: 16700,        // e ~ 0.0167
+        inclination_mdeg: 0,
+        lon_ascending_node_mdeg: 174000,
+        arg_periapsis_mdeg: 288000,
+        mean_anomaly_epoch_mdeg: 0,
+        frame: EclipticJ2000,
+    ),
+    rotation: RotationModel(
+        sidereal_period_s: 86164,
+        axial_tilt_mdeg: 23440,
+        frame: EclipticJ2000,
+    ),
+
+    // Environment declarations (not a climate/ecosystem solver).
+    environment: EnvironmentDefinition(
+        biosphere: Present(Microbial),
+        atmosphere: AtmosphereProfile(
+            surface_pressure_pa: 101325,
+            composition: Composition(
+                components: [ (GasId("n2"), 780000), (GasId("o2"), 220000) ],
+                tolerance_ppm: 0,
+            ),
+        ),
+        thermal: ThermalProfile(mean_mk: 288000, min_mk: 184000, max_mk: 331000),
+        hydrosphere: Hydrosphere(surface_coverage_ppm: 708000),
+        cryosphere: Cryosphere(surface_coverage_ppm: 100000),
+    ),
+}

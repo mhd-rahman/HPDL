@@ -1,12 +1,14 @@
 //! Frontend decode seam.
 //!
 //! The core pipeline operates on a frontend-neutral [`hpdl_model::PlanetDefinition`].
-//! Today only the RON frontend is wired; when the native `.hpdl` parser
-//! (`hpdl-syntax`) lands it adds a sibling `decode_hpdl` returning the same
-//! type, and nothing downstream (resolution, lowering, emission) changes.
+//! Both wired frontends — the RON adapter ([`hpdl_ron`]) and the native `.hpdl`
+//! parser ([`hpdl_syntax`]) — decode into the same type, and nothing downstream
+//! (resolution, lowering, emission) differs between them. Equivalent semantics in
+//! either frontend therefore yield identical PIR bytes (ADR 0010).
 
 use hpdl_model::PlanetDefinition;
 use hpdl_ron::{RonLoader, SourceDocument};
+use hpdl_syntax::{parse_file, SourceFile};
 
 use crate::Error;
 
@@ -27,6 +29,22 @@ pub(crate) fn decode_ron(name: &str, source: &str) -> Result<PlanetDefinition, E
     })?;
 
     Ok(parsed.into_definition())
+}
+
+/// Decode native `.hpdl` source text into a [`PlanetDefinition`].
+///
+/// Delegates parsing to [`hpdl_syntax`]; this crate never re-parses HPDL itself.
+///
+/// # Errors
+///
+/// Returns [`Error::Frontend`] if the native frontend fails to lex, parse, or
+/// convert the source.
+pub(crate) fn decode_hpdl(name: &str, source: &str) -> Result<PlanetDefinition, Error> {
+    let file = SourceFile::from_string(name.to_string(), source.to_string());
+    parse_file(&file).map_err(|e| Error::Frontend {
+        name: name.to_string(),
+        reason: e.to_string(),
+    })
 }
 
 #[cfg(test)]
