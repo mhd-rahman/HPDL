@@ -9,7 +9,7 @@ publish = false                 # internal crate, not a published contract crate
 
 [dependencies]
 hpdl-model = { path = "../hpdl-model" }
-thiserror = "1"
+thiserror = "2"
 
 [features]
 # No optional features at skeleton stage.

@@ -17,7 +17,7 @@ path = "src/main.rs"
 
 [dependencies]
 hpdl-compiler = { path = "../hpdl-compiler" }
-thiserror = "1"
+thiserror = "2"
 
 [features]
 # No optional features at skeleton stage.

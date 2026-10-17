@@ -10,7 +10,7 @@ publish = false                 # internal crate, not a published contract crate
 [dependencies]
 hpdl-model = { path = "../hpdl-model" }
 hpdl-sema = { path = "../hpdl-sema" }
-thiserror = "1"
+thiserror = "2"
 
 [dev-dependencies]
 # Used only by the cross-frontend equivalence tests (feature 03, Task 11). This

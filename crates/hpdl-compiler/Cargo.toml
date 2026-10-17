@@ -15,7 +15,7 @@ hpdl-model = { path = "../hpdl-model" }
 hpdl-ron  = { path = "../hpdl-ron" }
 hpdl-sema = { path = "../hpdl-sema" }
 hpdl-pir  = { path = "../hpdl-pir" }
-thiserror = "1"
+thiserror = "2"
 
 [features]
 # No optional features at skeleton stage.

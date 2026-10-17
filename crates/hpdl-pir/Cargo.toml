@@ -18,7 +18,7 @@ hpdl-model = { path = "../hpdl-model", version = "0.1.0" }
 serde = { version = "1", features = ["derive"] }
 serde_bytes = "0.11"
 sha2 = "0.10"
-thiserror = "1"
+thiserror = "2"
 
 [features]
 # No optional features at skeleton stage.
