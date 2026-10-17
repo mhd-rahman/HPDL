@@ -28,13 +28,6 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  # CRITICAL: the repo root rust-toolchain.toml pins stable 1.81.0, and a
-  # toolchain file takes precedence over `rustup override` AND does not get
-  # bypassed by a `+nightly` proxy on the *outer* `cargo fuzz` (cargo-fuzz
-  # shells out to an inner `cargo build` that re-resolves the toolchain from the
-  # file). RUSTUP_TOOLCHAIN overrides the toolchain file and propagates to every
-  # child process, so the inner build also uses nightly. This is the fix.
-  RUSTUP_TOOLCHAIN: nightly
 
 permissions:
   contents: read
@@ -51,15 +44,30 @@ jobs:
       - name: Install nightly toolchain
         uses: dtolnay/rust-toolchain@nightly
 
+      # The repo root rust-toolchain.toml pins a stable channel. A toolchain FILE
+      # beats `rustup override` and `RUSTUP_TOOLCHAIN`, and cargo-fuzz spawns an
+      # inner `cargo build` (cwd = repo root) that re-reads that file — which is
+      # why earlier attempts still resolved stable. The only robust fix is
+      # to remove the file's influence for this job: delete the root toolchain
+      # file and make nightly the rustup default. (This job builds only the
+      # excluded `fuzz/` crate, so deleting the file here is safe and local to
+      # the ephemeral runner checkout.)
+      - name: Make nightly the only resolvable toolchain
+        run: |
+          rm -f rust-toolchain.toml rust-toolchain
+          rustup default nightly
+          # cargo-fuzz defaults to the musl target on Linux, which is statically
+          # linked — and AddressSanitizer is incompatible with a static libc.
+          # Build against the dynamically-linked gnu target instead (native on
+          # ubuntu runners); ensure it is installed for the nightly toolchain.
+          rustup target add x86_64-unknown-linux-gnu
+          rustc --version
+          cargo --version
+
       - name: Install cargo-fuzz
         uses: taiki-e/install-action@v2
         with:
           tool: cargo-fuzz
-
-      - name: Confirm nightly is in use
-        run: |
-          rustc --version
-          cargo --version
 
       - name: Cache fuzz build artifacts
         uses: actions/cache@v4
@@ -93,7 +101,9 @@ jobs:
 
       - name: Run fuzz target
         run: |
-          cargo fuzz run decode_pir -- \
+          # --target gnu: avoid cargo-fuzz's musl default (static libc is
+          # incompatible with the sanitizer). gnu is dynamically linked.
+          cargo fuzz run decode_pir --target x86_64-unknown-linux-gnu -- \
             -max_total_time=${{ steps.dur.outputs.seconds }} \
             -rss_limit_mb=2048
 

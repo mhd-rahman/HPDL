@@ -65,12 +65,12 @@ For each of `hpdl-model`, `hpdl-sema`, `hpdl-ron`, `hpdl-pir`, `hpdl-compiler`, 
 - Commit `Cargo.lock`.
 
 **Verification:**
-- [x] `rust-toolchain.toml` exists and pins `1.81.0` (OD-01 default — update after approval).
-- [x] All crates have `rust-version = "1.80"` (OD-02 default — update after approval).
+- [x] `rust-toolchain.toml` exists and pins `1.99.1` (OD-01 ratified in ADR 0001).
+- [x] All crates have `rust-version = "1.85.0"` (OD-02 ratified in ADR 0001).
 - [x] `Cargo.lock` present at repo root (committed once the repo is under git — see note).
 - [x] `CHANGELOG.md` notes the chosen toolchain and MSRV.
 
-> **OD-01 and OD-02:** Defaults applied. Pending explicit approval to finalize.
+> **OD-01 and OD-02:** Ratified in ADR 0001 (2026-10-17) — toolchain `1.99.1`, MSRV `1.85.0`.
 
 ---
 
