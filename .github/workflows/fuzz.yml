@@ -44,6 +44,13 @@ jobs:
       - name: Install nightly toolchain
         uses: dtolnay/rust-toolchain@nightly
 
+      # The repo's rust-toolchain.toml pins channel 1.81.0, which otherwise wins
+      # for every cargo invocation in this directory. cargo-fuzz needs nightly
+      # (-Zsanitizer=address), so make nightly the directory override. We also
+      # pass `+nightly` explicitly below as a belt-and-braces guarantee.
+      - name: Force nightly for this repo
+        run: rustup override set nightly
+
       - name: Install cargo-fuzz
         uses: taiki-e/install-action@v2
         with:
@@ -81,7 +88,7 @@ jobs:
 
       - name: Run fuzz target
         run: |
-          cargo fuzz run decode_pir -- \
+          cargo +nightly fuzz run decode_pir -- \
             -max_total_time=${{ steps.dur.outputs.seconds }} \
             -rss_limit_mb=2048
 

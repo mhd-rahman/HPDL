@@ -1,0 +1,6 @@
+# cargo-fuzz requires a nightly toolchain for -Zsanitizer=address and the
+# sancov coverage instrumentation. This file overrides the workspace root's
+# pinned stable channel (1.81.0) for everything under `fuzz/`, so both CI and
+# local `cargo fuzz run` resolve nightly automatically — no `+nightly` needed.
+[toolchain]
+channel = "nightly"
