@@ -1,0 +1,26 @@
+[package]
+name = "hpdl-fuzz"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+# This crate is NOT part of the main workspace (see `exclude` in the root
+# Cargo.toml). cargo-fuzz builds it with its own nightly toolchain, so it must
+# not force the stable workspace build to pull libfuzzer-sys.
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+hpdl-pir = { path = "../crates/hpdl-pir" }
+
+[[bin]]
+name = "decode_pir"
+path = "fuzz_targets/decode_pir.rs"
+test = false
+doc = false
+bench = false
+
+# Fuzz builds want full optimizations with debug assertions on.
+[profile.release]
+debug = 1

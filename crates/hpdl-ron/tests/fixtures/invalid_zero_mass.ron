@@ -1,0 +1,20 @@
+// Parses structurally but FAILS semantic validation: zero mass is non-physical
+// (hpdl-sema diagnostic E2001 / NegativeMass).
+PlanetDefinition(
+    language_version: "1.0",
+    body: CelestialBody(
+        id: BodyId("void"),
+        properties: PhysicalProperties(
+            mass_kg: Some(0),
+            radius_m: None,
+            surface_gravity_mms2: None,
+            orbital_period_s: None,
+            rotation_period_s: None,
+        ),
+        traits: TraitSet([]),
+        modules: [],
+        statuses: [],
+        actions: [],
+        migrations: [],
+    )
+)

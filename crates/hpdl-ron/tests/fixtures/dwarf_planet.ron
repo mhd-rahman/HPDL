@@ -1,0 +1,22 @@
+// A dwarf planet with retrograde rotation (negative sidereal period) and a
+// forward-only schema migration declaration.
+PlanetDefinition(
+    language_version: "1.0",
+    body: CelestialBody(
+        id: BodyId("ceres-analog"),
+        properties: PhysicalProperties(
+            mass_kg: Some(938000000000000000000),
+            radius_m: Some(473000),
+            surface_gravity_mms2: Some(270),
+            orbital_period_s: Some(145098000),
+            rotation_period_s: Some(-32667),
+        ),
+        traits: TraitSet(["dwarf-planet", "icy"]),
+        modules: [],
+        statuses: [],
+        actions: [],
+        migrations: [
+            MigrationDeclaration(name: "add-cryosphere", from_version: 1, to_version: 2),
+        ],
+    )
+)

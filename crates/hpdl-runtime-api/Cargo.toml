@@ -1,0 +1,28 @@
+[package]
+name = "hpdl-runtime-api"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.80"
+description = "HPDL published runtime contracts — events, ticks, state hashes, and replay records consumed by the external simulation engine"
+license = "MIT OR Apache-2.0"
+
+# IMPORTANT: hpdl-runtime-api is a published contract crate (activated in feature 10,
+# ADR 0004). It MUST NOT depend on hpdl-compiler, hpdl-sema, hpdl-ron, or hpdl-syntax.
+# Only hpdl-pir and selected stable hpdl-model types are permitted as workspace deps.
+[dependencies]
+hpdl-model = { path = "../hpdl-model", version = "0.1.0" }
+hpdl-pir = { path = "../hpdl-pir", version = "0.2.0" }
+serde = { version = "1", features = ["derive"] }
+# Event binding uses SHA-256 with a dedicated event domain separator (never the
+# PIR separator), consistent with the determinism steering.
+sha2 = "0.10"
+thiserror = "1"
+
+[features]
+# No optional features at activation.
+
+[dev-dependencies]
+# The mock executor test harness hashes mock state bytes to produce StateHashes.
+sha2 = "0.10"
+# Receipt-tampering tests round-trip receipts through JSON to flip a field.
+serde_json = "1"

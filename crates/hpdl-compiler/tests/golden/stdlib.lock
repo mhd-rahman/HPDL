@@ -1,0 +1,4 @@
+lock_format_version = 1
+package = hpdl.atmosphere 1.2.0 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+package = hpdl.climate 2.0.0 bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb hpdl.atmosphere
+package = hpdl.ocean 0.4.1 cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc

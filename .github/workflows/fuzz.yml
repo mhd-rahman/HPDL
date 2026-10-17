@@ -1,0 +1,94 @@
+name: Fuzz
+
+# cargo-fuzz requires a nightly toolchain and libfuzzer-sys. The fuzz crate is
+# excluded from the stable workspace, so this is a dedicated job. On PRs/pushes
+# it runs a short time-boxed smoke fuzz to catch regressions; the weekly cron
+# runs longer. Fuzzing supplements — it does not replace — the test suite.
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "crates/hpdl-pir/**"
+      - "fuzz/**"
+      - ".github/workflows/fuzz.yml"
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "crates/hpdl-pir/**"
+      - "fuzz/**"
+  schedule:
+    # Weekly longer run, 05:23 UTC Sunday.
+    - cron: "23 5 * * 0"
+  workflow_dispatch:
+    inputs:
+      max_total_time:
+        description: "Fuzz duration in seconds"
+        required: false
+        default: "120"
+
+env:
+  CARGO_TERM_COLOR: always
+
+permissions:
+  contents: read
+
+jobs:
+  fuzz:
+    name: fuzz decode_pir
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install nightly toolchain
+        uses: dtolnay/rust-toolchain@nightly
+
+      - name: Install cargo-fuzz
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-fuzz
+
+      - name: Cache fuzz build artifacts
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            fuzz/target/
+          key: ${{ runner.os }}-fuzz-${{ hashFiles('fuzz/Cargo.toml', '**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-fuzz-
+
+      # Duration: 120s on PR/push smoke runs, 600s on the weekly cron, or the
+      # workflow_dispatch input when triggered manually.
+      - name: Determine fuzz duration
+        id: dur
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            echo "seconds=600" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "seconds=${{ github.event.inputs.max_total_time }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "seconds=120" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Seed the corpus
+        shell: bash
+        run: |
+          mkdir -p fuzz/corpus/decode_pir
+          cp -n fuzz/seeds/* fuzz/corpus/decode_pir/ 2>/dev/null || true
+
+      - name: Run fuzz target
+        run: |
+          cargo fuzz run decode_pir -- \
+            -max_total_time=${{ steps.dur.outputs.seconds }} \
+            -rss_limit_mb=2048
+
+      - name: Upload crash artifacts (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzz-artifacts
+          path: fuzz/artifacts/
+          if-no-files-found: ignore

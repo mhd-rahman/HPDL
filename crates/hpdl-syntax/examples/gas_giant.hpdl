@@ -1,0 +1,18 @@
+// A gas giant with number-with-unit literals and a block comment.
+// Illustrative subset of the (not-yet-ratified) HPDL grammar.
+language hpdl "1.0";
+
+planet jove_prime {
+    id: "jove-prime",
+    /* Units after a number are accepted by the lexer/parser as an
+       optional suffix; canonical storage remains scaled integers. */
+    physical: {
+        mass_kg: 1898000000000000000000000000,
+        radius_m: 69911000,
+        surface_gravity_mms2: 24790,
+        rotation_period_s: 35730,
+    },
+    traits: {
+        tags: ["gas-giant", "hydrogen-helium"],
+    },
+}

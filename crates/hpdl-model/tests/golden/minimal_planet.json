@@ -1,0 +1,18 @@
+{
+  "language_version": "1.0",
+  "body": {
+    "id": "proxima-b",
+    "properties": {
+      "mass_kg": null,
+      "radius_m": null,
+      "surface_gravity_mms2": null,
+      "orbital_period_s": null,
+      "rotation_period_s": null
+    },
+    "traits": [],
+    "modules": [],
+    "statuses": [],
+    "actions": [],
+    "migrations": []
+  }
+}

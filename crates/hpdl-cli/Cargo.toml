@@ -1,0 +1,27 @@
+[package]
+name = "hpdl-cli"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.80"           # OD-02: update once MSRV is approved
+description = "HPDL developer CLI — check, build, inspect, export, and test commands"
+license = "MIT OR Apache-2.0"
+publish = false                 # internal tooling crate, not a published contract crate
+
+[lib]
+name = "hpdl_cli"
+path = "src/lib.rs"
+
+[[bin]]
+name = "hpdl"
+path = "src/main.rs"
+
+[dependencies]
+hpdl-compiler = { path = "../hpdl-compiler" }
+thiserror = "1"
+
+[features]
+# No optional features at skeleton stage.
+
+[dev-dependencies]
+# No third-party dev-dependencies: integration tests use std::env::temp_dir()
+# for scratch files to keep the dependency closure minimal and MSRV-safe.

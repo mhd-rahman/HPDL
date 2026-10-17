@@ -1,0 +1,26 @@
+[package]
+name = "hpdl-syntax"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.80"
+description = "HPDL native syntax parser — lexer/parser for .hpdl files"
+license = "MIT OR Apache-2.0"
+publish = false                 # internal crate, not a published contract crate
+
+[dependencies]
+hpdl-model = { path = "../hpdl-model" }
+hpdl-sema = { path = "../hpdl-sema" }
+thiserror = "1"
+
+[dev-dependencies]
+# Used only by the cross-frontend equivalence tests (feature 03, Task 11). This
+# dev-dependency is architecturally safe: nothing depends on `hpdl-syntax`, and
+# both frontends depend on `hpdl-sema` (never the reverse), so there is no cycle.
+hpdl-ron = { path = "../hpdl-ron" }
+
+[features]
+# No optional features at skeleton stage.
+
+[[bench]]
+name = "parse_bench"
+harness = false

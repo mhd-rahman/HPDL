@@ -1,0 +1,32 @@
+// A comprehensive terrestrial planet: physical properties, traits, a module
+// reference, a derived-status declaration, and a state-mutating action.
+// Values are illustrative, not an assertion of real-world data.
+PlanetDefinition(
+    language_version: "1.0",
+    body: CelestialBody(
+        id: BodyId("terra-nova"),
+        properties: PhysicalProperties(
+            mass_kg: Some(5972000000000000000000000),
+            radius_m: Some(6371000),
+            surface_gravity_mms2: Some(9810),
+            orbital_period_s: Some(31557600),
+            rotation_period_s: Some(86164),
+        ),
+        traits: TraitSet(["terrestrial", "habitable-zone", "oxygen-atmosphere"]),
+        modules: [
+            ModuleRef(name: "hpdl/stdlib/atmospheric", version: "1.0"),
+        ],
+        statuses: [
+            StatusDeclaration(name: "AtmosphericStability", scale_min: 0, scale_max: 100),
+        ],
+        actions: [
+            ActionDeclaration(
+                name: "AdjustGreenhouse",
+                reads: ["state.atmosphere.co2", "state.temperature.mean"],
+                writes: ["state.atmosphere.co2"],
+                capabilities: [Capability("state.atmosphere.write")],
+            ),
+        ],
+        migrations: [],
+    )
+)

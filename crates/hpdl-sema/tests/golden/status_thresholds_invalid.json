@@ -1,0 +1,32 @@
+{
+  "description": "Amendment A1 invalid threshold sets. Each case is rejected, never clamped. These document the required negative behaviour.",
+  "scale_min": 0,
+  "scale_max": 100,
+  "cases": [
+    {
+      "name": "first_threshold_not_scale_min",
+      "thresholds": { "a_low": 10, "b_high": 50 },
+      "expected_code": "E4006"
+    },
+    {
+      "name": "unsorted",
+      "thresholds": { "a": 0, "b": 75, "c": 25 },
+      "expected_code": "E4001"
+    },
+    {
+      "name": "duplicate",
+      "thresholds": { "a": 0, "b": 50, "c": 50 },
+      "expected_code": "E4002"
+    },
+    {
+      "name": "out_of_range_above",
+      "thresholds": { "a": 0, "b": 150 },
+      "expected_code": "E4003"
+    },
+    {
+      "name": "out_of_range_below",
+      "thresholds": { "a": -10, "b": 50 },
+      "expected_code": "E4003"
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+{
+  "language_version": "1.0",
+  "body": {
+    "id": "mars",
+    "properties": {
+      "mass_kg": 641710000000000000000000,
+      "radius_m": 3389500,
+      "surface_gravity_mms2": 3721,
+      "orbital_period_s": 59355072,
+      "rotation_period_s": 88642
+    },
+    "traits": [],
+    "modules": [],
+    "statuses": [],
+    "actions": [],
+    "migrations": [],
+    "identity": "Planet",
+    "parent": {
+      "target": "sol",
+      "frame": "EclipticJ2000"
+    },
+    "orbit": {
+      "semi_major_axis_m": 227939000000,
+      "eccentricity_micro": 93400,
+      "inclination_mdeg": 1850,
+      "lon_ascending_node_mdeg": 49558,
+      "arg_periapsis_mdeg": 286502,
+      "mean_anomaly_epoch_mdeg": 19412,
+      "frame": "EclipticJ2000"
+    },
+    "rotation": {
+      "sidereal_period_s": 88642,
+      "axial_tilt_mdeg": 25190,
+      "frame": "EclipticJ2000"
+    },
+    "environment": null
+  }
+}

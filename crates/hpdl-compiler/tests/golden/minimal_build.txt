@@ -1,0 +1,4 @@
+source_name = golden
+compiler_semantics_version = 0.1.0
+pir_version = 2.0
+content_hash = 23d96f5d90dfa9fdb8f18c21d1b5b41c08a6ef8f1f1f2e181d94a0da97f86538

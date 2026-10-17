@@ -1,0 +1,58 @@
+{
+  "language_version": "1.0",
+  "body": {
+    "id": "terra-nova",
+    "properties": {
+      "mass_kg": null,
+      "radius_m": null,
+      "surface_gravity_mms2": null,
+      "orbital_period_s": null,
+      "rotation_period_s": null
+    },
+    "traits": [],
+    "modules": [],
+    "statuses": [],
+    "actions": [],
+    "migrations": [],
+    "identity": null,
+    "parent": null,
+    "orbit": null,
+    "rotation": null,
+    "environment": {
+      "atmosphere": {
+        "surface_pressure_pa": 101325,
+        "composition": {
+          "components": {
+            "ar": 9700,
+            "n2": 780800,
+            "o2": 209500
+          },
+          "tolerance_ppm": 0
+        },
+        "climate_model": null
+      },
+      "thermal": {
+        "mean_mk": 288000,
+        "min_mk": 184000,
+        "max_mk": 331000
+      },
+      "hydrosphere": {
+        "surface_coverage_ppm": 708000,
+        "dominant_liquid": "h2o"
+      },
+      "cryosphere": {
+        "surface_coverage_ppm": 100000
+      },
+      "biosphere": {
+        "Present": "Complex"
+      },
+      "assets": {
+        "surface-albedo": {
+          "name": "surface-albedo",
+          "kind": "Texture",
+          "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      }
+    }
+  }
+}

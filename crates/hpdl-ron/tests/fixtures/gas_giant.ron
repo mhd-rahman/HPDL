@@ -1,0 +1,20 @@
+// A gas giant: large mass/radius, fast retrograde-free rotation, no ecosystem
+// status declared (a missing ecosystem is "not applicable", never "zero").
+PlanetDefinition(
+    language_version: "1.0",
+    body: CelestialBody(
+        id: BodyId("jove-prime"),
+        properties: PhysicalProperties(
+            mass_kg: Some(1898000000000000000000000000),
+            radius_m: Some(69911000),
+            surface_gravity_mms2: Some(24790),
+            orbital_period_s: Some(374335776),
+            rotation_period_s: Some(35730),
+        ),
+        traits: TraitSet(["gas-giant", "hydrogen-helium"]),
+        modules: [],
+        statuses: [],
+        actions: [],
+        migrations: [],
+    )
+)

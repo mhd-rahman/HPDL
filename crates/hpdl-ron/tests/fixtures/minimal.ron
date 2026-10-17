@@ -1,0 +1,20 @@
+// Minimal valid planet: required fields only, no declared physical properties.
+// Absent properties mean "undeclared", never Earth defaults.
+PlanetDefinition(
+    language_version: "1.0",
+    body: CelestialBody(
+        id: BodyId("proxima-b"),
+        properties: PhysicalProperties(
+            mass_kg: None,
+            radius_m: None,
+            surface_gravity_mms2: None,
+            orbital_period_s: None,
+            rotation_period_s: None,
+        ),
+        traits: TraitSet([]),
+        modules: [],
+        statuses: [],
+        actions: [],
+        migrations: [],
+    )
+)

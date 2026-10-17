@@ -1,0 +1,40 @@
+version: 2
+updates:
+  # Rust / Cargo dependencies across the workspace.
+  - package-ecosystem: "cargo"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "rust"
+    commit-message:
+      prefix: "deps"
+    # Contract crates (hpdl-pir, hpdl-runtime-api) are intentionally minimal and
+    # semver-stable. Group low-risk patch/minor bumps so review stays focused;
+    # major bumps come as individual PRs for deliberate review.
+    groups:
+      cargo-minor-patch:
+        update-types:
+          - "minor"
+          - "patch"
+    ignore:
+      # bincode 1.3.3 is intentionally frozen — it is the canonical PIR encoder
+      # and changing it is a PIR format-version decision, not a dependency bump
+      # (see deny.toml RUSTSEC-2025-0141 note and feature 02).
+      - dependency-name: "bincode"
+        versions: ["2.x", ">=2.0.0"]
+
+  # GitHub Actions used by the workflows.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    labels:
+      - "dependencies"
+      - "ci"
+    commit-message:
+      prefix: "ci"

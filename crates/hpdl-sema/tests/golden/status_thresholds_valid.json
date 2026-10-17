@@ -1,0 +1,13 @@
+{
+  "description": "Amendment A1 valid threshold set. Scale 0..=100 with four ordered lower-bound cut points. Bands are [0,25) [25,50) [50,75) [75,100].",
+  "status_name": "AtmosphericStability",
+  "scale_min": 0,
+  "scale_max": 100,
+  "thresholds": {
+    "a_critical": 0,
+    "b_degraded": 25,
+    "c_stressed": 50,
+    "d_stable": 75
+  },
+  "expected": "valid"
+}

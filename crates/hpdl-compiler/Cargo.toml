@@ -1,0 +1,29 @@
+[package]
+name = "hpdl-compiler"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.80"           # OD-02: update once MSRV is approved
+description = "HPDL compiler pipeline — deterministic source-to-PIR compilation and fixed-point lowering"
+license = "MIT OR Apache-2.0"
+publish = false                 # internal orchestration crate, not a published contract crate
+
+# hpdl-compiler orchestrates the frontends (hpdl-ron, later hpdl-syntax),
+# the shared semantic validator (hpdl-sema), and canonical PIR emission (hpdl-pir).
+# It must NOT be depended upon by hpdl-pir or hpdl-runtime-api.
+[dependencies]
+hpdl-model = { path = "../hpdl-model" }
+hpdl-ron  = { path = "../hpdl-ron" }
+hpdl-sema = { path = "../hpdl-sema" }
+hpdl-pir  = { path = "../hpdl-pir" }
+thiserror = "1"
+
+[features]
+# No optional features at skeleton stage.
+
+[dev-dependencies]
+hpdl-model = { path = "../hpdl-model" }
+hpdl-sema = { path = "../hpdl-sema" }
+
+[[bench]]
+name = "pipeline_bench"
+harness = false

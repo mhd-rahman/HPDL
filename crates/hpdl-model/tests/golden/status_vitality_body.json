@@ -1,0 +1,66 @@
+{
+  "language_version": "1.0",
+  "body": {
+    "id": "terra-nova",
+    "properties": {
+      "mass_kg": null,
+      "radius_m": null,
+      "surface_gravity_mms2": null,
+      "orbital_period_s": null,
+      "rotation_period_s": null
+    },
+    "traits": [],
+    "modules": [],
+    "statuses": [
+      {
+        "name": "EcosystemVitality",
+        "scale_min": 0,
+        "scale_max": 100,
+        "dimension": "NativeEcosystem",
+        "baseline": {
+          "name": "preindustrial",
+          "digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        },
+        "evaluator": {
+          "module": {
+            "name": "hpdl.vitality.eco",
+            "version": "1.0"
+          }
+        },
+        "cut_points": {
+          "scale_min": 0,
+          "scale_max": 100,
+          "cuts": [
+            [
+              0,
+              "critical"
+            ],
+            [
+              25,
+              "degraded"
+            ],
+            [
+              50,
+              "stressed"
+            ],
+            [
+              75,
+              "stable"
+            ]
+          ]
+        },
+        "window": {
+          "span": 1000,
+          "scope": "surface"
+        }
+      }
+    ],
+    "actions": [],
+    "migrations": [],
+    "identity": null,
+    "parent": null,
+    "orbit": null,
+    "rotation": null,
+    "environment": null
+  }
+}

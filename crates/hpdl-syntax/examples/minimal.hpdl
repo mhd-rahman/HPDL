@@ -1,0 +1,8 @@
+// Minimal HPDL planet: language declaration + a planet with only an id.
+// NOTE: HPDL grammar is NOT yet ratified; this reflects the subset the current
+// hpdl-syntax parser accepts and is illustrative, not normative.
+language hpdl "1.0";
+
+planet proxima_b {
+    id: "proxima-b"
+}

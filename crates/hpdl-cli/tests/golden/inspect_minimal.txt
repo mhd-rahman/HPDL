@@ -1,0 +1,5 @@
+source:          minimal
+compiler:        0.1.0
+pir_version:     2.0
+content_hash:    0000000000000000000000000000000000000000000000000000000000000000
+modules:         (none)

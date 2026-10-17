@@ -1,0 +1,23 @@
+[package]
+name = "hpdl-sema"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.80"           # OD-02: update once MSRV is approved
+description = "HPDL shared semantic validation pipeline — one validator for every frontend"
+license = "MIT OR Apache-2.0"
+publish = false                 # internal crate, not a published contract crate
+
+[dependencies]
+hpdl-model = { path = "../hpdl-model" }
+thiserror = "1"
+
+[features]
+# No optional features at skeleton stage.
+
+[dev-dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[[bench]]
+name = "validate_bench"
+harness = false

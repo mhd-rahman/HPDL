@@ -1,0 +1,20 @@
+[package]
+name = "hpdl-model"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.80"           # OD-02: update once MSRV is approved
+description = "HPDL core domain model — typed immutable definitions shared by all crates"
+license = "MIT OR Apache-2.0"
+
+# No workspace dependencies — hpdl-model is the dependency root.
+[dependencies]
+thiserror = "1"
+serde = { version = "1", features = ["derive"] }
+
+[features]
+# No optional features at skeleton stage.
+# Add feature flags here with an inline comment explaining each one.
+
+[dev-dependencies]
+# serde_json used only for golden fixture tests
+serde_json = "1"

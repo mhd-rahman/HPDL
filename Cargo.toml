@@ -1,0 +1,36 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/hpdl-model",
+    "crates/hpdl-sema",
+    "crates/hpdl-ron",
+    "crates/hpdl-syntax",
+    "crates/hpdl-pir",
+    "crates/hpdl-compiler",
+    "crates/hpdl-cli",
+    "crates/hpdl-runtime-api",
+]
+
+# Deferred — do NOT uncomment until the feature is explicitly started:
+# "crates/hpdl-lsp"
+
+# The fuzz crate is built only by `cargo fuzz` with a nightly toolchain and
+# libfuzzer-sys; keep it out of the stable workspace build/test/clippy.
+exclude = ["fuzz"]
+
+# ---------------------------------------------------------------------------
+# Shared profiles — defined once here, never duplicated in member crates
+# ---------------------------------------------------------------------------
+[profile.dev]
+opt-level = 0
+debug = true
+
+[profile.release]
+opt-level = 3
+debug = false
+lto = "thin"
+codegen-units = 1
+
+[profile.test]
+# Inherit dev; override below if faster test builds become necessary
+inherits = "dev"

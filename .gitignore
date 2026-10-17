@@ -1,0 +1,38 @@
+# Rust build output
+/target/
+**/target/
+
+# Cargo lock — committed for applications, optional for libraries.
+# HPDL workspace commits Cargo.lock for reproducible builds (REQ-05, NFR-02).
+# Do NOT add Cargo.lock here.
+
+# Editor and IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS artifacts
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Coverage / profiling
+lcov.info
+*.profraw
+*.profdata
+tarpaulin-report.html
+
+# Benchmarking
+criterion/
+
+# Environment files
+.env
+.env.*
+
+# cargo-fuzz: build output and auto-generated corpora. The fuzz crate's own
+# Cargo.lock and crash reproducers (fuzz/artifacts) are NOT ignored so crashers
+# can be committed as regression tests.
+/fuzz/target/
+/fuzz/corpus/
