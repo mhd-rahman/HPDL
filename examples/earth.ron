@@ -1,0 +1,77 @@
+// Earth, expressed in RON (the Serde/RON authoring frontend).
+//
+// This file is semantically identical to examples/earth.hpdl: compiling either
+// produces byte-identical canonical PIR (the determinism guarantee, ADR 0010).
+//
+//     hpdl check   examples/earth.ron
+//     hpdl build   examples/earth.ron
+//     hpdl inspect examples/earth.ron
+//     hpdl export  examples/earth.ron --out earth.pir
+//
+// RON mirrors the hpdl_model type shapes via serde: enum variants are written as
+// `Planet` / `Some(x)` / `Present(Intelligent)`, newtypes as `BodyId("…")` /
+// `Capability("…")`, and maps with `{ key: value }`. All continuous quantities are
+// scaled integers in canonical SI units; `None` means undeclared (no Earth defaults).
+PlanetDefinition(
+    language_version: "1.0",
+    body: CelestialBody(
+        id: BodyId("earth"),
+        properties: PhysicalProperties(
+            mass_kg: Some(5972000000000000000000000),  // 5.972e24 kg
+            radius_m: Some(6371000),
+            surface_gravity_mms2: Some(9810),          // 9.81 m/s²
+            orbital_period_s: Some(31557600),          // ~1 Julian year
+            rotation_period_s: Some(86164),            // sidereal day
+        ),
+        traits: TraitSet(["terrestrial", "habitable-zone"]),
+        modules: [],
+        statuses: [
+            StatusDeclaration(name: "BiosphereVitality", scale_min: 0, scale_max: 100),
+        ],
+        actions: [
+            ActionDeclaration(
+                name: "AdjustGreenhouse",
+                reads: ["state.atmosphere.co2", "state.thermal.mean"],
+                writes: ["state.atmosphere.co2"],
+                capabilities: [ Capability("state.atmosphere.write") ],
+            ),
+        ],
+        migrations: [
+            MigrationDeclaration(name: "add-ocean-chemistry", from_version: 1, to_version: 2),
+        ],
+        identity: Some(Planet),
+        parent: Some(ParentRef(target: BodyId("sol"), frame: EclipticJ2000)),
+        orbit: Some(KeplerianElements(
+            semi_major_axis_m: 149598000000,  // ~1 AU
+            eccentricity_micro: 16700,        // e ~ 0.0167
+            inclination_mdeg: 0,
+            lon_ascending_node_mdeg: 174000,
+            arg_periapsis_mdeg: 288000,
+            mean_anomaly_epoch_mdeg: 0,
+            frame: EclipticJ2000,
+        )),
+        rotation: Some(RotationModel(
+            sidereal_period_s: 86164,
+            axial_tilt_mdeg: 23440,           // 23.44 deg obliquity
+            frame: EclipticJ2000,
+        )),
+        environment: Some(EnvironmentDefinition(
+            biosphere: Present(Intelligent),
+            atmosphere: Some(AtmosphereProfile(
+                surface_pressure_pa: 101325,
+                composition: Composition(
+                    components: {
+                        GasId("n2"): 780800,
+                        GasId("o2"): 209500,
+                        GasId("ar"): 9700,
+                    },
+                    tolerance_ppm: 0,
+                ),
+            )),
+            thermal: Some(ThermalProfile(mean_mk: 288000, min_mk: 184000, max_mk: 331000)),
+            hydrosphere: Some(Hydrosphere(surface_coverage_ppm: 708000, dominant_liquid: None)),
+            cryosphere: Some(Cryosphere(surface_coverage_ppm: 100000)),
+            assets: {},
+        )),
+    )
+)

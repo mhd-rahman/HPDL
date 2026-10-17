@@ -28,6 +28,7 @@ fn fixture(name: &str) -> String {
 }
 
 const MINIMAL: &str = "minimal.ron";
+const MINIMAL_HPDL: &str = "minimal.hpdl";
 
 #[test]
 fn no_args_prints_help_ok() {
@@ -74,6 +75,29 @@ fn check_minimal_succeeds() {
     let out = dispatch(&args(&["check", &fixture(MINIMAL)]));
     assert_eq!(out.code, OK, "stderr: {}", out.stderr);
     assert!(out.stdout.starts_with("ok: "));
+}
+
+#[test]
+fn check_native_hpdl_succeeds() {
+    // The CLI dispatches `.hpdl` files to the native frontend.
+    let out = dispatch(&args(&["check", &fixture(MINIMAL_HPDL)]));
+    assert_eq!(out.code, OK, "stderr: {}", out.stderr);
+    assert!(out.stdout.starts_with("ok: "));
+}
+
+#[test]
+fn hpdl_and_ron_fixtures_export_identical_pir() {
+    // The minimal `.hpdl` and `.ron` fixtures are semantically identical, so the
+    // CLI must export byte-identical canonical PIR (hex) for both.
+    let hpdl = dispatch(&args(&["export", &fixture(MINIMAL_HPDL)]));
+    let ron = dispatch(&args(&["export", &fixture(MINIMAL)]));
+    assert_eq!(hpdl.code, OK, "stderr: {}", hpdl.stderr);
+    assert_eq!(ron.code, OK, "stderr: {}", ron.stderr);
+    assert_eq!(
+        hpdl.stdout.trim(),
+        ron.stdout.trim(),
+        "native HPDL and RON must export identical canonical PIR"
+    );
 }
 
 #[test]

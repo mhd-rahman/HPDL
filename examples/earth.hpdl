@@ -1,0 +1,88 @@
+// Earth, expressed in native HPDL (grammar v1.0 — see crates/hpdl-syntax/GRAMMAR.md).
+//
+// This file is semantically identical to examples/earth.ron: compiling either
+// produces byte-identical canonical PIR (the determinism guarantee, ADR 0010).
+//
+//     hpdl check   examples/earth.hpdl
+//     hpdl build   examples/earth.hpdl
+//     hpdl inspect examples/earth.hpdl
+//     hpdl export  examples/earth.hpdl --out earth.pir
+//
+// All continuous quantities are scaled integers in canonical SI units (no floats):
+// gravity in milli-m/s², angles in milli-degrees, pressure in Pa, temperature in
+// milli-kelvin, mole fractions / surface coverage in parts-per-million. Absence
+// means "undeclared" — there are no Earth defaults.
+language hpdl "1.0";
+
+planet earth {
+    id: "earth",
+
+    physical: {
+        mass_kg: 5972000000000000000000000,  // 5.972e24 kg
+        radius_m: 6371000,
+        surface_gravity_mms2: 9810,          // 9.81 m/s²
+        orbital_period_s: 31557600,          // ~1 Julian year
+        rotation_period_s: 86164,            // sidereal day
+    },
+
+    traits: { tags: ["terrestrial", "habitable-zone"] },
+
+    // A derived-status declaration (its value is computed by an evaluator at
+    // runtime; a definition never writes a status score).
+    statuses: [
+        StatusDeclaration(name: "BiosphereVitality", scale_min: 0, scale_max: 100),
+    ],
+
+    // An action declares the state it reads/writes and the capability that backs
+    // each mutating write. Writing a `status.*` field is rejected at compile time.
+    actions: [
+        ActionDeclaration(
+            name: "AdjustGreenhouse",
+            reads: ["state.atmosphere.co2", "state.thermal.mean"],
+            writes: ["state.atmosphere.co2"],
+            capabilities: [ Capability("state.atmosphere.write") ],
+        ),
+    ],
+
+    // Forward-only schema migration.
+    migrations: [
+        MigrationDeclaration(name: "add-ocean-chemistry", from_version: 1, to_version: 2),
+    ],
+
+    // Celestial / orbital declarations (static data — no propagation is performed).
+    identity: Planet,
+    parent: ParentRef(target: BodyId("sol"), frame: EclipticJ2000),
+    orbit: KeplerianElements(
+        semi_major_axis_m: 149598000000,  // ~1 AU
+        eccentricity_micro: 16700,        // e ≈ 0.0167
+        inclination_mdeg: 0,
+        lon_ascending_node_mdeg: 174000,
+        arg_periapsis_mdeg: 288000,
+        mean_anomaly_epoch_mdeg: 0,
+        frame: EclipticJ2000,
+    ),
+    rotation: RotationModel(
+        sidereal_period_s: 86164,
+        axial_tilt_mdeg: 23440,           // 23.44° obliquity
+        frame: EclipticJ2000,
+    ),
+
+    // Environment declarations (not a climate or ecosystem solver).
+    environment: EnvironmentDefinition(
+        biosphere: Present(Intelligent),
+        atmosphere: AtmosphereProfile(
+            surface_pressure_pa: 101325,
+            composition: Composition(
+                components: [
+                    (GasId("n2"), 780800),
+                    (GasId("o2"), 209500),
+                    (GasId("ar"), 9700),
+                ],
+                tolerance_ppm: 0,
+            ),
+        ),
+        thermal: ThermalProfile(mean_mk: 288000, min_mk: 184000, max_mk: 331000),
+        hydrosphere: Hydrosphere(surface_coverage_ppm: 708000),
+        cryosphere: Cryosphere(surface_coverage_ppm: 100000),
+    ),
+}

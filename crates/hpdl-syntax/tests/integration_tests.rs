@@ -1,9 +1,8 @@
 //! Integration tests for the HPDL native parser: parse example `.hpdl` files,
 //! convert to the model, and route through the shared semantic validator.
 //!
-//! These tests exercise the subset of HPDL syntax the parser currently
-//! implements (language decl + `planet { id, physical, traits }`). The grammar
-//! is not yet ratified; see GRAMMAR.md.
+//! These tests exercise native HPDL grammar v1.0 (ratified; see GRAMMAR.md /
+//! ADR 0010), which parses the full RON-equivalent surface.
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::indexing_slicing)]
 
@@ -59,11 +58,31 @@ fn gas_giant_example_parses_with_block_comment_and_units() {
 
 #[test]
 fn examples_pass_semantic_validation() {
-    for name in ["minimal.hpdl", "earth.hpdl", "gas_giant.hpdl"] {
+    for name in [
+        "minimal.hpdl",
+        "earth.hpdl",
+        "gas_giant.hpdl",
+        "comprehensive.hpdl",
+    ] {
         let validated = parse_and_validate(&example(name))
             .unwrap_or_else(|e| panic!("{name} should parse+validate, got: {e}"));
         assert_eq!(validated.definition().language_version(), "1.0");
     }
+}
+
+#[test]
+fn comprehensive_example_extracts_full_surface() {
+    let def = parse_file(&example("comprehensive.hpdl")).expect("comprehensive.hpdl should parse");
+    let body = def.body();
+    assert_eq!(body.id().as_str(), "terra-nova");
+    assert_eq!(body.statuses().len(), 1);
+    assert_eq!(body.actions().len(), 1);
+    assert_eq!(body.migrations().len(), 1);
+    assert!(body.identity().is_some());
+    assert!(body.parent().is_some());
+    assert!(body.orbit().is_some());
+    assert!(body.rotation().is_some());
+    assert!(body.environment().is_some());
 }
 
 #[test]

@@ -1,5 +1,5 @@
 // A gas giant with number-with-unit literals and a block comment.
-// Illustrative subset of the (not-yet-ratified) HPDL grammar.
+// Native HPDL grammar v1.0 (ratified — see GRAMMAR.md / ADR 0010).
 language hpdl "1.0";
 
 planet jove_prime {

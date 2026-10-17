@@ -1,0 +1,11 @@
+// Native-HPDL equivalent of minimal.ron (same semantics → same canonical PIR).
+language hpdl "1.0";
+
+planet earth {
+    id: "earth",
+    physical: {
+        mass_kg: 5972000000000000000000000,
+        radius_m: 6371000,
+        surface_gravity_mms2: 9810,
+    },
+}

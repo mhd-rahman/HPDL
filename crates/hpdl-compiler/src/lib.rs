@@ -1,11 +1,11 @@
 //! # hpdl-compiler
 //!
 //! The HPDL compiler pipeline. This crate is the **orchestration layer**: it
-//! sequences the existing stages — frontend decode ([`hpdl_ron`]), the shared
-//! semantic validator ([`hpdl_sema`]), module resolution against a lockfile,
-//! fixed-point representability checks, and canonical PIR emission
-//! ([`hpdl_pir`]) — into a single deterministic path and reports structured,
-//! typed diagnostics.
+//! sequences the existing stages — frontend decode (RON via [`hpdl_ron`] or
+//! native `.hpdl` via [`hpdl_syntax`]), the shared semantic validator
+//! ([`hpdl_sema`]), module resolution against a lockfile, fixed-point
+//! representability checks, and canonical PIR emission ([`hpdl_pir`]) — into a
+//! single deterministic path and reports structured, typed diagnostics.
 //!
 //! It owns **no semantic rules of its own** and performs **no simulation**. It
 //! produces immutable artifacts: a canonical [`PirEnvelope`] and a reproducible
@@ -20,7 +20,7 @@
 //! ## Pipeline
 //!
 //! ```text
-//! source (RON today, HPDL later)
+//! source (RON or native .hpdl)
 //!   → frontend decode     → PlanetDefinition
 //!   → semantic validation → ValidatedDefinition
 //!   → module resolution   → ResolvedModules
@@ -254,6 +254,30 @@ impl Compiler {
         }
 
         let definition = frontend::decode_ron(name, source)?;
+        let validated = self.validate(definition)?;
+        self.compile_validated(name, validated)
+    }
+
+    /// Compile native `.hpdl` source text to a [`CompileResult`].
+    ///
+    /// Runs the identical pipeline as [`Self::compile_ron_str`], differing only
+    /// in the frontend decode step. Equivalent semantics authored in `.hpdl` or
+    /// `.ron` produce byte-identical PIR (ADR 0010).
+    ///
+    /// # Errors
+    ///
+    /// Returns a typed [`Error`] at the first stage that fails. A definition
+    /// that fails validation is never lowered or emitted.
+    pub fn compile_hpdl_str(&self, name: &str, source: &str) -> Result<CompileResult, Error> {
+        if source.len() > self.options.limits.max_source_bytes {
+            return Err(Error::Limit(format!(
+                "source `{name}` is {} bytes, exceeds max {}",
+                source.len(),
+                self.options.limits.max_source_bytes
+            )));
+        }
+
+        let definition = frontend::decode_hpdl(name, source)?;
         let validated = self.validate(definition)?;
         self.compile_validated(name, validated)
     }

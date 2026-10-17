@@ -86,6 +86,7 @@ dependencies = [
  "hpdl-pir",
  "hpdl-ron",
  "hpdl-sema",
+ "hpdl-syntax",
  "thiserror",
 ]
 
