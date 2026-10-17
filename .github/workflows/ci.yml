@@ -138,7 +138,7 @@ jobs:
         run: cargo run -p hpdl-compiler --example emit_digests > digests-${{ runner.os }}.txt
 
       - name: Upload digests
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: digests-${{ runner.os }}
           path: digests-${{ runner.os }}.txt
