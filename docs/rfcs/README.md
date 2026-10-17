@@ -55,7 +55,7 @@ What tests need to be added, changed, or removed as a result?
 
 | ADR | Title | Status |
 |-----|-------|--------|
-| [0001](0001-workspace-open-decisions.md) | Workspace Foundation — Open Decisions | Pending |
+| [0001](0001-workspace-open-decisions.md) | Workspace Foundation — Open Decisions | Accepted |
 | [0002](0002-ron-extension-fields.md) | RON Extension Fields | Accepted |
 | [0003](0003-pir-v2-orbital-fields.md) | PIR v2 Orbital Fields | Accepted |
 | [0004](0004-activate-hpdl-runtime-api.md) | Activate `hpdl-runtime-api` | Accepted |

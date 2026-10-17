@@ -9,10 +9,10 @@ on:
 env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: 1
-  # Pinned toolchain — keep in sync with rust-toolchain.toml (OD-01).
-  RUST_VERSION: "1.81.0"
-  # Documented MSRV (OD-02). The msrv job proves the workspace builds here.
-  RUST_MSRV: "1.80.0"
+  # Pinned toolchain — keep in sync with rust-toolchain.toml (ADR 0001, OD-01).
+  RUST_VERSION: "1.99.1"
+  # Documented MSRV (ADR 0001, OD-02). The msrv job proves the workspace builds here.
+  RUST_MSRV: "1.85.0"
 
 jobs:
   # ---------------------------------------------------------------------------
@@ -92,7 +92,7 @@ jobs:
           restore-keys: ${{ runner.os }}-cargo-msrv-
 
       # Build + test only (fmt/clippy are tied to the pinned stable toolchain,
-      # not the MSRV). This proves the code compiles and passes on 1.80.
+      # not the MSRV). This proves the code compiles and passes on the MSRV.
       - name: cargo build (MSRV)
         run: cargo build --workspace --all-targets
 

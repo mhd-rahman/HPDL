@@ -8,7 +8,7 @@ panic, over-allocate, or hang.
 
 `cargo fuzz` compiles with `-Zsanitizer=address` and sancov instrumentation, which
 are **nightly-only** flags. The workspace root pins a stable toolchain in
-`rust-toolchain.toml` (`1.81.0`), and that pin is resolved from the **current working
+`rust-toolchain.toml`, and that pin is resolved from the **current working
 directory** — so running `cargo fuzz` from the repo root otherwise picks up stable and
 fails with:
 

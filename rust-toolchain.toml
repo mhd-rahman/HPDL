@@ -1,6 +1,7 @@
-# OD-01: Pinned toolchain version. Update this after approval.
-# Using stable 1.81.0 as a starting point — confirm and bump as needed.
+# Pinned toolchain version. Ratified in ADR 0001 (OD-01): stable 1.99.1.
+# Internal project — we track current stable; 1.99.1 is the patched release
+# (1.99.0 + three bug fixes, 2026-10-15). Keep CI RUST_VERSION in sync.
 [toolchain]
-channel = "1.81.0"
+channel = "1.99.1"
 components = ["rustfmt", "clippy"]
 targets = []

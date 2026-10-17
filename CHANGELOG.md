@@ -701,3 +701,21 @@ are exercised by a mock executor test double. No PIR change.
 
 - No new third-party runtime dependency; no PIR / canonical-bytes change. Exit codes are a
   stability surface.
+
+## [Unreleased] — ADR 0001 ratified: toolchain, MSRV, CI, semver, licenses (2026-10-17)
+
+### Changed
+
+- **Pinned toolchain** bumped `1.81.0` → **`1.99.1`** (OD-01) in `rust-toolchain.toml`
+  and the CI `RUST_VERSION`. `1.99.1` is the patched current stable (1.99.0 + three
+  bug fixes).
+- **MSRV** raised `1.80` → **`1.85.0`** (OD-02) across every crate's `rust-version`
+  and the CI `RUST_MSRV`. The `msrv` CI job builds + tests the workspace at this floor.
+- **ADR 0001** flipped `Pending` → `Accepted`; OD-01…OD-05 ratified. OD-03 confirms
+  GitHub Actions; OD-04 confirms semver-checks errors-only; OD-05 corrects the license
+  allowlist to `Unicode-3.0` (matching `deny.toml`, not the draft's `Unicode-DFS-2016`).
+
+### Notes
+
+- No source or canonical-PIR change; this is a build-configuration ratification only.
+  A future change to any ratified value requires a superseding ADR.
