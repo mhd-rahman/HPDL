@@ -56,6 +56,11 @@ jobs:
         run: |
           rm -f rust-toolchain.toml rust-toolchain
           rustup default nightly
+          # cargo-fuzz defaults to the musl target on Linux, which is statically
+          # linked — and AddressSanitizer is incompatible with a static libc.
+          # Build against the dynamically-linked gnu target instead (native on
+          # ubuntu runners); ensure it is installed for the nightly toolchain.
+          rustup target add x86_64-unknown-linux-gnu
           rustc --version
           cargo --version
 
@@ -96,7 +101,9 @@ jobs:
 
       - name: Run fuzz target
         run: |
-          cargo fuzz run decode_pir -- \
+          # --target gnu: avoid cargo-fuzz's musl default (static libc is
+          # incompatible with the sanitizer). gnu is dynamically linked.
+          cargo fuzz run decode_pir --target x86_64-unknown-linux-gnu -- \
             -max_total_time=${{ steps.dur.outputs.seconds }} \
             -rss_limit_mb=2048
 
