@@ -606,4 +606,113 @@ mod tests {
             }
         }
     }
+
+    #[test]
+    fn test_strict_mode_promotes_warning_to_error() {
+        // A declared world law with no resolver is a Warning in default mode but
+        // must fail the build in strict mode (exercises the strict-mode branch of
+        // `has_errors`).
+        use hpdl_model::{
+            CelestialBody, LawDomain, LawMode, ModuleRef, PhysicalProperties, TraitSet, WorldLaw,
+        };
+
+        let law = WorldLaw::new(
+            ModuleRef::new("hpdl.law.arcane", "1.0.0").unwrap(),
+            LawMode::Additive,
+            [LawDomain::new("arcane.aether").unwrap()],
+            None,
+        )
+        .unwrap();
+        let body = CelestialBody::new(
+            BodyId::new("mystic").unwrap(),
+            PhysicalProperties::default(),
+            TraitSet::empty(),
+            vec![],
+            vec![],
+            vec![],
+            vec![],
+        )
+        .unwrap()
+        .with_world_law(law);
+        let definition = PlanetDefinition::new("1.0", body).unwrap();
+
+        // Default mode: the non-executable world law is a warning → build succeeds.
+        assert!(Validator::default_config().validate(definition.clone()).is_ok());
+
+        // Strict mode: the same warning is promoted to a failure.
+        let strict = Validator::new(ValidatorConfig::strict());
+        assert!(
+            strict.validate(definition).is_err(),
+            "strict mode must promote the world-law warning to an error"
+        );
+    }
+
+    #[test]
+    fn test_validate_with_resolver_clears_evaluator_flag() {
+        // Exercises `with_resolver` and the resolver being threaded through the
+        // status pass: a registered evaluator clears the unsupported flag that an
+        // unresolved reference would raise.
+        use hpdl_model::{
+            CelestialBody, CutPoints, EvaluationWindow, EvaluatorRef, ModuleKind, ModuleRef,
+            PhysicalProperties, StatusDeclaration, TraitSet,
+        };
+
+        struct OneModule {
+            key: (String, String),
+            kind: ModuleKind,
+        }
+        impl ModuleResolver for OneModule {
+            fn resolve_module(
+                &self,
+                name: &str,
+                version: &str,
+                expected: ModuleKind,
+                _digest: Option<&str>,
+            ) -> Result<(), crate::resolver::ResolverError> {
+                if (name.to_string(), version.to_string()) == self.key && self.kind == expected {
+                    Ok(())
+                } else {
+                    Err(crate::resolver::ResolverError::NotFound)
+                }
+            }
+            fn resolve_baseline(
+                &self,
+                _digest: &str,
+            ) -> Result<(), crate::resolver::ResolverError> {
+                Err(crate::resolver::ResolverError::NotFound)
+            }
+        }
+
+        let cp =
+            CutPoints::new(0, 100, [(0, "low".to_string()), (50, "high".to_string())]).unwrap();
+        let status = StatusDeclaration::new("Vitality", 0, 100)
+            .unwrap()
+            .with_evaluator(EvaluatorRef::new(
+                ModuleRef::new("hpdl.vitality.eco", "1.0").unwrap(),
+            ))
+            .with_cut_points(cp)
+            .with_window(EvaluationWindow::new(1000, None).unwrap());
+        let body = CelestialBody::new(
+            BodyId::new("gaia").unwrap(),
+            PhysicalProperties::default(),
+            TraitSet::empty(),
+            vec![],
+            vec![status],
+            vec![],
+            vec![],
+        )
+        .unwrap();
+        let definition = PlanetDefinition::new("1.0", body).unwrap();
+
+        let resolver = OneModule {
+            key: ("hpdl.vitality.eco".to_string(), "1.0".to_string()),
+            kind: ModuleKind::Evaluator,
+        };
+        let validator = Validator::default_config().with_resolver(Box::new(resolver));
+        // A resolved evaluator means no E9202, so the minimal def validates clean.
+        assert!(
+            validator.validate(definition).is_ok(),
+            "resolved evaluator should let the definition validate"
+        );
+    }
 }

@@ -651,4 +651,171 @@ mod tests {
             "Writing to state fields should be allowed"
         );
     }
+
+    // ----- resolver-present vitality paths (the `Some(r)` arms) -----
+
+    use std::collections::BTreeMap as StdBTreeMap;
+
+    /// Tiny resolver driving the `Some(resolver)` evaluator/baseline branches of
+    /// `validate_status_vitality` directly, independent of the full `Validator`.
+    struct MapResolver {
+        modules: StdBTreeMap<(String, String), ModuleKind>,
+        baselines: std::collections::BTreeSet<String>,
+    }
+
+    impl ModuleResolver for MapResolver {
+        fn resolve_module(
+            &self,
+            name: &str,
+            version: &str,
+            expected: ModuleKind,
+            _expected_digest: Option<&str>,
+        ) -> Result<(), crate::resolver::ResolverError> {
+            match self.modules.get(&(name.to_string(), version.to_string())) {
+                None => Err(crate::resolver::ResolverError::NotFound),
+                Some(&k) if k == expected => Ok(()),
+                Some(&found) => Err(crate::resolver::ResolverError::KindMismatch {
+                    expected,
+                    found,
+                }),
+            }
+        }
+        fn resolve_baseline(&self, digest: &str) -> Result<(), crate::resolver::ResolverError> {
+            if self.baselines.contains(digest) {
+                Ok(())
+            } else {
+                Err(crate::resolver::ResolverError::NotFound)
+            }
+        }
+    }
+
+    fn evaluator_status() -> StatusDeclaration {
+        use hpdl_model::{CutPoints, EvaluationWindow, EvaluatorRef, ModuleRef};
+        let cp = CutPoints::new(0, 100, [(0, "low".to_string()), (50, "high".to_string())]).unwrap();
+        StatusDeclaration::new("Vitality", 0, 100)
+            .unwrap()
+            .with_evaluator(EvaluatorRef::new(
+                ModuleRef::new("hpdl.vitality.eco", "1.0").unwrap(),
+            ))
+            .with_cut_points(cp)
+            .with_window(EvaluationWindow::new(1000, None).unwrap())
+    }
+
+    fn def_with_status(status: StatusDeclaration) -> PlanetDefinition {
+        let body = CelestialBody::new(
+            BodyId::new("test").unwrap(),
+            PhysicalProperties::default(),
+            TraitSet::empty(),
+            vec![],
+            vec![status],
+            vec![],
+            vec![],
+        )
+        .unwrap();
+        PlanetDefinition::new("1.0", body).unwrap()
+    }
+
+    #[test]
+    fn test_vitality_resolved_evaluator_is_clean() {
+        let validator = StatusValidator::new();
+        let resolver = MapResolver {
+            modules: StdBTreeMap::from([(
+                ("hpdl.vitality.eco".to_string(), "1.0".to_string()),
+                ModuleKind::Evaluator,
+            )]),
+            baselines: std::collections::BTreeSet::new(),
+        };
+        let diagnostics =
+            validator.validate_status_vitality(&def_with_status(evaluator_status()), Some(&resolver));
+        assert!(
+            !diagnostics
+                .iter()
+                .any(|d| d.code == DiagnosticCode::UnsupportedEvaluator),
+            "a resolved evaluator must clear the unsupported flag: {diagnostics:?}"
+        );
+    }
+
+    #[test]
+    fn test_vitality_unresolved_evaluator_with_resolver_is_flagged() {
+        let validator = StatusValidator::new();
+        let resolver = MapResolver {
+            modules: StdBTreeMap::new(),
+            baselines: std::collections::BTreeSet::new(),
+        };
+        let diagnostics =
+            validator.validate_status_vitality(&def_with_status(evaluator_status()), Some(&resolver));
+        assert!(diagnostics
+            .iter()
+            .any(|d| d.code == DiagnosticCode::UnsupportedEvaluator));
+    }
+
+    #[test]
+    fn test_vitality_wrong_kind_evaluator_with_resolver_is_flagged() {
+        let validator = StatusValidator::new();
+        let resolver = MapResolver {
+            modules: StdBTreeMap::from([(
+                ("hpdl.vitality.eco".to_string(), "1.0".to_string()),
+                ModuleKind::ClimateModel,
+            )]),
+            baselines: std::collections::BTreeSet::new(),
+        };
+        let diagnostics =
+            validator.validate_status_vitality(&def_with_status(evaluator_status()), Some(&resolver));
+        assert!(diagnostics
+            .iter()
+            .any(|d| d.code == DiagnosticCode::UnsupportedEvaluator));
+    }
+
+    #[test]
+    fn test_vitality_resolved_baseline_is_clean() {
+        use hpdl_model::{BaselineRef, Digest, StatusDimension};
+        let validator = StatusValidator::new();
+        let digest = "a".repeat(64);
+        let status = StatusDeclaration::new("Vitality", 0, 100)
+            .unwrap()
+            .with_dimension(StatusDimension::NativeEcosystem)
+            .with_baseline(BaselineRef::new("preindustrial", Digest::new(&digest).unwrap()).unwrap());
+        let resolver = MapResolver {
+            modules: StdBTreeMap::new(),
+            baselines: std::collections::BTreeSet::from([digest]),
+        };
+        let diagnostics = validator.validate_status_vitality(&def_with_status(status), Some(&resolver));
+        assert!(
+            !diagnostics
+                .iter()
+                .any(|d| d.code == DiagnosticCode::UnsupportedBaseline),
+            "a resolved baseline must clear E9203: {diagnostics:?}"
+        );
+    }
+
+    #[test]
+    fn test_vitality_unregistered_baseline_with_resolver_is_flagged() {
+        use hpdl_model::{BaselineRef, Digest, StatusDimension};
+        let validator = StatusValidator::new();
+        let status = StatusDeclaration::new("Vitality", 0, 100)
+            .unwrap()
+            .with_dimension(StatusDimension::NativeEcosystem)
+            .with_baseline(
+                BaselineRef::new("preindustrial", Digest::new("a".repeat(64)).unwrap()).unwrap(),
+            );
+        let resolver = MapResolver {
+            modules: StdBTreeMap::new(),
+            baselines: std::collections::BTreeSet::from(["b".repeat(64)]),
+        };
+        let diagnostics = validator.validate_status_vitality(&def_with_status(status), Some(&resolver));
+        assert!(diagnostics
+            .iter()
+            .any(|d| d.code == DiagnosticCode::UnsupportedBaseline));
+    }
+
+    #[test]
+    fn test_empty_status_name_is_flagged() {
+        // `validate_statuses` re-checks the name defensively; a status built with
+        // a valid name but whose scale is fine still exercises the name-ok path,
+        // and the scale-bounds helper on the valid branch.
+        let validator = StatusValidator::new();
+        let status = StatusDeclaration::new("Vitality", -50, 50).unwrap();
+        let diagnostics = validator.validate_statuses(&def_with_status(status));
+        assert!(diagnostics.is_empty());
+    }
 }

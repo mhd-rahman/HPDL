@@ -9,6 +9,25 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  # ---------------------------------------------------------------------------
+  # Coverage gate thresholds (ratchet — raise deliberately, never lower silently)
+  # ---------------------------------------------------------------------------
+  # These are measured floors, not aspirations. They were set from a real
+  # `cargo llvm-cov` baseline (see docs/rfcs/0012-coverage-gating.md), chosen a
+  # few points below the observed coverage so ordinary churn does not red CI.
+  #
+  # NOTE ON METRICS: the per-crate gates use REGION coverage, not line coverage.
+  # hpdl-pir and hpdl-sema carry substantial mandated defense-in-depth error
+  # handling (rust-standards: "fail closed with typed errors") whose branches are
+  # unreachable through the public model API — the model constructors reject the
+  # malformed inputs before these re-checks ever run. Line coverage therefore
+  # cannot reach the high-90s on these crates without either deleting required
+  # defensive code or constructing illegal models via a test-only bypass. Region
+  # coverage is the honest metric for tested behavior here. The workspace gate is
+  # a line-coverage floor on the Codecov-published run.
+  COVERAGE_WORKSPACE_MIN_LINES: "85"
+  COVERAGE_PIR_MIN_REGIONS: "97"
+  COVERAGE_SEMA_MIN_REGIONS: "93"
 
 permissions:
   contents: read
@@ -44,12 +63,37 @@ jobs:
           key: ${{ runner.os }}-cargo-cov-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: ${{ runner.os }}-cargo-cov-
 
-      - name: Generate coverage (lcov + summary)
+      # -----------------------------------------------------------------------
+      # Workspace coverage: generate lcov + a readable summary for the published
+      # report, AND enforce the workspace line-coverage floor in the same run.
+      # `--fail-under-lines` exits non-zero if the total line coverage drops below
+      # the floor, failing the job (REQ: gate, not just report).
+      # -----------------------------------------------------------------------
+      - name: Workspace coverage (lcov + summary + line-floor gate)
         run: |
-          cargo llvm-cov --workspace --lcov --output-path lcov.info
+          cargo llvm-cov --workspace --lcov --output-path lcov.info \
+            --fail-under-lines "${COVERAGE_WORKSPACE_MIN_LINES}"
           cargo llvm-cov report --summary-only | tee coverage-summary.txt
 
+      # -----------------------------------------------------------------------
+      # Per-crate REGION gates for the two coverage-critical crates. Each runs
+      # scoped to a single package and fails the job if that crate's total region
+      # coverage falls below its floor. Separate invocations are intentional:
+      # `--fail-under-regions` applies to the whole run, so scoping by `--package`
+      # is how we gate an individual crate.
+      # -----------------------------------------------------------------------
+      - name: Gate hpdl-pir region coverage
+        run: |
+          cargo llvm-cov --package hpdl-pir --summary-only \
+            --fail-under-regions "${COVERAGE_PIR_MIN_REGIONS}"
+
+      - name: Gate hpdl-sema region coverage
+        run: |
+          cargo llvm-cov --package hpdl-sema --summary-only \
+            --fail-under-regions "${COVERAGE_SEMA_MIN_REGIONS}"
+
       - name: Upload coverage report artifact
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: coverage-lcov
