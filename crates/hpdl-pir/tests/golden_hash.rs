@@ -4,10 +4,14 @@
 //! compiler versions and platforms. The golden hashes are **frozen** and must
 //! only change when the PIR format version is deliberately incremented.
 //!
+//! PIR v2.0 is RATIFIED / LOCKED (ADR 0014); the "fold into unreleased v2.0"
+//! allowance is closed. A deliberate change to these bytes now requires a v3.0
+//! major bump, not a fold-in.
+//!
 //! IMPORTANT: Do not regenerate these hashes to make tests pass.
 //! If a hash changes, the canonical bytes changed — investigate why and bump the
-//! PIR format version (+ ADR + reviewed vector update) rather than editing the
-//! frozen value. The human-readable record lives in
+//! PIR format version (+ ADR + migration path + reviewed vector update) rather
+//! than editing the frozen value. The human-readable record lives in
 //! `crates/hpdl-pir/tests/golden/pir_vectors.json`; the constants below are the
 //! enforced copy (kept in sync with that file and with
 //! `crates/hpdl-compiler/examples/emit_digests.rs`, which the CI cross-platform

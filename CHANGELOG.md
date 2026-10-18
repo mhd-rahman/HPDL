@@ -8,6 +8,42 @@ for published crates (`hpdl-pir`, and others as they stabilize).
 
 ---
 
+## [Unreleased] — PIR format v2.0 ratified / locked (ADR 0014) (2026-10-19)
+
+### Changed — PIR format status (no bytes, no code, no crate-version change)
+
+- **PIR format v2.0 is now final / locked.** Declared by
+  `docs/rfcs/0014-pir-v2-ratified.md`. `PirVersion::CURRENT` stays `2.0`, the hash
+  domain separator stays `HPDL-PIR-v2`, and `hpdl-pir` stays `0.2.0` — this is a
+  governance freeze, not a byte or API change.
+- **The "fold into unreleased v2.0" allowance (ADR 0003 amendment, OD-08.1) is
+  closed.** Any further change to the canonical byte layout now requires a **v3.0**
+  major bump, a new ADR, a migration path, and a reviewed golden-vector update, per
+  ADR 0013. No more folding into v2.0.
+- **Frozen golden vectors are the v2.0 contract:** `pir_vectors.json`
+  (`minimal=608a90a7…`, `traits=9bc40d4e…`), `minimal_build.txt`
+  (`content_hash=23d96f5d…`), and `digest_parity.txt` (`minimal`, `traits`,
+  `environment_frontends=438303d9…`, `locked_closure=9ed3b771…`). These are
+  deliberately **unchanged** — the correct outcome for a freeze. Frozen-vector
+  comments updated to note the lock.
+
+### v1 → v2 compatibility (confirmed + newly tested)
+
+- A v2 decoder **rejects** v1 bytes — the intended hard break, no migration. Enforced
+  two independent ways: the explicit version gate
+  (`PirVersion::CURRENT.is_compatible` → `Error::IncompatibleVersion`) and the
+  structural bincode layout change (v1 payload cannot deserialize into the v2
+  struct → `Error::MalformedData`). Digests differ across majors by construction
+  (separator bound to the major version).
+- **Added** `crates/hpdl-pir/tests/v1_rejection.rs` — end-to-end tests that drive a
+  real v1-stamped envelope (valid content hash) through `decode_planet_definition`
+  and assert `Error::IncompatibleVersion`, including the case where a v2-shaped
+  payload carries a v1 version stamp (rejected before payload decode). This closes
+  the gap where v1 rejection was previously proven only via the `is_compatible`
+  helper and a forced-`{99,0}` decode.
+
+---
+
 ## [Unreleased] — Feature 14: Module registry (existence / kind / integrity) (2026-10-18)
 
 Adds the compile-time module registry that backs the previously-unconditional
