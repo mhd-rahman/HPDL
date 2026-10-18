@@ -1,6 +1,6 @@
 //! Lexer (tokenizer) for HPDL syntax.
 
-use crate::{Error, SourceSpan, Token, TokenKind};
+use crate::{Error, ParseLimits, SourceSpan, Token, TokenKind};
 
 /// Lexer that converts source text into tokens.
 #[derive(Debug)]
@@ -16,16 +16,27 @@ pub struct Lexer {
 
     /// Current column number (1-indexed).
     col: usize,
+
+    /// Resource limits applied while lexing untrusted input (currently the
+    /// identifier-length bound).
+    limits: ParseLimits,
 }
 
 impl Lexer {
-    /// Create a new lexer for the given source text.
+    /// Create a new lexer for the given source text, using default
+    /// [`ParseLimits`].
     pub fn new(source: String) -> Self {
+        Self::new_with_limits(source, ParseLimits::default())
+    }
+
+    /// Create a new lexer with explicit [`ParseLimits`].
+    pub fn new_with_limits(source: String, limits: ParseLimits) -> Self {
         Self {
             source,
             pos: 0,
             line: 1,
             col: 1,
+            limits,
         }
     }
 
@@ -245,6 +256,14 @@ impl Lexer {
         // Check if it's a keyword
         let kind = TokenKind::from_keyword(&text).unwrap_or(TokenKind::Identifier);
 
+        // Bound identifier length on untrusted input. Keywords are fixed and
+        // short, so this only ever constrains genuine identifiers; a hostile
+        // multi-megabyte "identifier" fails closed here rather than being
+        // materialized downstream.
+        if kind == TokenKind::Identifier {
+            self.limits.check_identifier(&text)?;
+        }
+
         Ok(Token::new(kind, SourceSpan::new(start, self.pos), text))
     }
 
@@ -455,5 +474,43 @@ mod tests {
         assert_eq!(s.kind, TokenKind::String);
         let p = lexer.next_token().unwrap();
         assert_eq!(p.kind, TokenKind::Planet);
+    }
+
+    #[test]
+    fn overlong_identifier_is_rejected() {
+        // An identifier past the configured length limit must fail closed with a
+        // typed security error rather than being materialized.
+        let limits = ParseLimits {
+            max_identifier_len: 8,
+            ..ParseLimits::default()
+        };
+        let ident = "a".repeat(9);
+        let mut lexer = Lexer::new_with_limits(ident, limits);
+        assert!(matches!(lexer.next_token(), Err(Error::Security(_))));
+    }
+
+    #[test]
+    fn identifier_at_limit_is_accepted() {
+        let limits = ParseLimits {
+            max_identifier_len: 8,
+            ..ParseLimits::default()
+        };
+        let mut lexer = Lexer::new_with_limits("a".repeat(8), limits);
+        let tok = lexer.next_token().unwrap();
+        assert_eq!(tok.kind, TokenKind::Identifier);
+    }
+
+    #[test]
+    fn keywords_are_not_subject_to_identifier_limit() {
+        // Contextual keywords are fixed, short tokens and must lex even when the
+        // identifier limit is set absurdly low; the bound only governs genuine
+        // identifiers.
+        let limits = ParseLimits {
+            max_identifier_len: 1,
+            ..ParseLimits::default()
+        };
+        let mut lexer = Lexer::new_with_limits("planet".to_string(), limits);
+        let tok = lexer.next_token().unwrap();
+        assert_eq!(tok.kind, TokenKind::Planet);
     }
 }

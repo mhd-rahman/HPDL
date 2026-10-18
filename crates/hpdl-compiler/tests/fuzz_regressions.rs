@@ -1,10 +1,11 @@
 //! Fuzz crash-reproducer regression tests.
 //!
-//! The PIR decoder (`hpdl_pir::decode_planet_definition`) and the RON loader
-//! (`hpdl_ron::RonLoader::parse`) must be **total** on untrusted input: they may
-//! return `Err`, but must never panic, hang, or over-allocate (rust-standards +
-//! determinism steering). The `fuzz/` crate searches for inputs that violate
-//! that; when it finds one, `cargo fuzz` writes a reproducer under
+//! The PIR decoder (`hpdl_pir::decode_planet_definition`), the RON loader
+//! (`hpdl_ron::RonLoader::parse`), and the native `.hpdl` parser
+//! (`hpdl_syntax::parse_file`) must all be **total** on untrusted input: they may
+//! return `Err`, but must never panic, hang, over-allocate, or overflow the stack
+//! (rust-standards + determinism steering). The `fuzz/` crate searches for inputs
+//! that violate that; when it finds one, `cargo fuzz` writes a reproducer under
 //! `fuzz/artifacts/<target>/`.
 //!
 //! This test replays every committed reproducer through the SAME decoder entry
@@ -22,6 +23,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use hpdl_ron::{RonLoader, SourceDocument};
+use hpdl_syntax::{parse_file, parse_source_collect_errors, SourceFile};
 
 /// Resolve `fuzz/artifacts/<target>` relative to the repo root.
 ///
@@ -64,9 +66,8 @@ fn decode_pir_reproducers_do_not_panic() {
     let dir = artifacts_dir("decode_pir");
     let files = reproducers(&dir);
     for path in &files {
-        let bytes = fs::read(path).unwrap_or_else(|e| {
-            panic!("failed to read PIR reproducer {}: {e}", path.display())
-        });
+        let bytes = fs::read(path)
+            .unwrap_or_else(|e| panic!("failed to read PIR reproducer {}: {e}", path.display()));
         // Totality contract: returning Err is fine; panicking / hanging is the bug.
         let _ = hpdl_pir::decode_planet_definition(&bytes);
     }
@@ -86,9 +87,8 @@ fn decode_ron_reproducers_do_not_panic() {
     let dir = artifacts_dir("decode_ron");
     let files = reproducers(&dir);
     for path in &files {
-        let bytes = fs::read(path).unwrap_or_else(|e| {
-            panic!("failed to read RON reproducer {}: {e}", path.display())
-        });
+        let bytes = fs::read(path)
+            .unwrap_or_else(|e| panic!("failed to read RON reproducer {}: {e}", path.display()));
         let Ok(text) = std::str::from_utf8(&bytes) else {
             // A non-UTF-8 artifact cannot be a decode_ron reproducer; skip it
             // rather than assert, matching the fuzz target's own guard.
@@ -101,6 +101,37 @@ fn decode_ron_reproducers_do_not_panic() {
     }
     eprintln!(
         "decode_ron: replayed {} committed reproducer(s) from {}",
+        files.len(),
+        dir.display()
+    );
+}
+
+/// Every committed native `.hpdl` reproducer must parse without panicking or
+/// overflowing the stack.
+///
+/// The fuzz target feeds valid UTF-8 to both parse entry points (non-UTF-8 is
+/// skipped), so a reproducer is always valid UTF-8; mirror that and drive both
+/// the strict and recovering paths here.
+#[test]
+fn parse_hpdl_reproducers_do_not_panic() {
+    let dir = artifacts_dir("parse_hpdl");
+    let files = reproducers(&dir);
+    for path in &files {
+        let bytes = fs::read(path)
+            .unwrap_or_else(|e| panic!("failed to read HPDL reproducer {}: {e}", path.display()));
+        let Ok(text) = std::str::from_utf8(&bytes) else {
+            // A non-UTF-8 artifact cannot be a parse_hpdl reproducer; skip it,
+            // matching the fuzz target's own guard.
+            continue;
+        };
+        let source = SourceFile::from_string("fuzz-regression.hpdl".to_string(), text.to_string());
+        // Totality contract: Err is fine; panicking / hanging / overflowing is
+        // the bug. Exercise both entry points the fuzz target drives.
+        let _ = parse_file(&source);
+        let _ = parse_source_collect_errors(&source);
+    }
+    eprintln!(
+        "parse_hpdl: replayed {} committed reproducer(s) from {}",
         files.len(),
         dir.display()
     );

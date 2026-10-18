@@ -12,6 +12,14 @@ pub struct ParseLimits {
     pub max_source_bytes: usize,
     /// Maximum identifier length in characters (default: 256).
     pub max_identifier_len: usize,
+    /// Maximum value-nesting depth the parser will descend before failing
+    /// closed (default: 128).
+    ///
+    /// The parser is recursive descent, so unbounded nesting (`[[[[…]]]]`,
+    /// `Variant(Variant(…))`, nested objects) would recurse until the native
+    /// stack overflows and the process aborts. This bound turns that into a
+    /// typed [`Error::Security`] long before the stack is exhausted.
+    pub max_nesting_depth: usize,
 }
 
 impl ParseLimits {
@@ -19,6 +27,12 @@ impl ParseLimits {
     pub const DEFAULT_MAX_SOURCE_BYTES: usize = 10 * 1024 * 1024;
     /// Default maximum identifier length: 256 characters.
     pub const DEFAULT_MAX_IDENTIFIER_LEN: usize = 256;
+    /// Default maximum value-nesting depth: 128 levels.
+    ///
+    /// Comfortably deeper than any legitimate planet definition while far below
+    /// the point at which recursive-descent parsing risks a stack overflow on
+    /// supported platforms.
+    pub const DEFAULT_MAX_NESTING_DEPTH: usize = 128;
 
     /// Verify a source string is within the size limit.
     ///
@@ -51,6 +65,21 @@ impl ParseLimits {
         }
         Ok(())
     }
+
+    /// Verify a nesting depth is within the limit.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::Security`] if `depth` exceeds `max_nesting_depth`.
+    pub fn check_depth(&self, depth: usize) -> Result<(), Error> {
+        if depth > self.max_nesting_depth {
+            return Err(Error::security(format!(
+                "nesting depth {} exceeds maximum {}",
+                depth, self.max_nesting_depth
+            )));
+        }
+        Ok(())
+    }
 }
 
 impl Default for ParseLimits {
@@ -58,6 +87,7 @@ impl Default for ParseLimits {
         Self {
             max_source_bytes: Self::DEFAULT_MAX_SOURCE_BYTES,
             max_identifier_len: Self::DEFAULT_MAX_IDENTIFIER_LEN,
+            max_nesting_depth: Self::DEFAULT_MAX_NESTING_DEPTH,
         }
     }
 }
@@ -75,6 +105,7 @@ mod tests {
             l.max_identifier_len,
             ParseLimits::DEFAULT_MAX_IDENTIFIER_LEN
         );
+        assert_eq!(l.max_nesting_depth, ParseLimits::DEFAULT_MAX_NESTING_DEPTH);
     }
 
     #[test]
@@ -104,5 +135,24 @@ mod tests {
             l.check_identifier("toolong"),
             Err(Error::Security(_))
         ));
+    }
+
+    #[test]
+    fn depth_within_limit_ok() {
+        let l = ParseLimits {
+            max_nesting_depth: 4,
+            ..ParseLimits::default()
+        };
+        assert!(l.check_depth(0).is_ok());
+        assert!(l.check_depth(4).is_ok());
+    }
+
+    #[test]
+    fn excessive_depth_rejected() {
+        let l = ParseLimits {
+            max_nesting_depth: 4,
+            ..ParseLimits::default()
+        };
+        assert!(matches!(l.check_depth(5), Err(Error::Security(_))));
     }
 }

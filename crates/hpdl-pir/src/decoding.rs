@@ -174,4 +174,70 @@ mod tests {
         let result = decode_planet_definition(&envelope_bytes);
         assert!(matches!(result, Err(Error::IncompatibleVersion { .. })));
     }
+
+    /// Byte offset of the envelope's `payload` length prefix under the canonical
+    /// bincode encoding (fixint, little-endian):
+    ///
+    /// - `version: PirVersion { major: u16, minor: u16 }` → 4 bytes
+    /// - `content_hash: CanonicalHash([u8; 32])` → 32 bytes, no length prefix
+    /// - `payload: Vec<u8>` (via `serde_bytes`) → `u64` length prefix (8 bytes) + data
+    ///
+    /// So the payload length prefix occupies bytes `[36, 44)`.
+    const PAYLOAD_LEN_PREFIX_OFFSET: usize = 4 + 32;
+
+    /// Allocation-bomb defense: an envelope whose inner `payload` length prefix
+    /// claims a huge number of bytes while actually supplying few must fail
+    /// closed with `MalformedData` rather than attempting to reserve the declared
+    /// capacity.
+    ///
+    /// This pins the decoder's reliance on bincode 1.x's default behavior, which
+    /// reads length-delimited data incrementally instead of pre-allocating the
+    /// full declared length up front. The forged envelope stays well under
+    /// `MAX_PIR_SIZE`, so the outer size cap does not catch it — the bincode
+    /// decode itself must. A regression (e.g. a bincode config or crate change
+    /// that pre-reserves capacity) would turn this into an OOM / abort, which this
+    /// test exists to catch.
+    #[allow(clippy::unwrap_used, clippy::indexing_slicing)]
+    #[test]
+    fn test_decode_rejects_inflated_payload_length_prefix() {
+        let original = minimal_planet("alloc-bomb");
+        let envelope = encode_planet_definition(&original).unwrap();
+        let mut bytes = bincode::serialize(&envelope).unwrap();
+
+        // Sanity: the stream is long enough to hold the prefix we are about to
+        // overwrite, and the layout assumption holds.
+        assert!(bytes.len() > PAYLOAD_LEN_PREFIX_OFFSET + 8);
+
+        // Overwrite the 8-byte little-endian payload length with a value far
+        // larger than any input could legitimately carry (and larger than
+        // MAX_PIR_SIZE), while leaving the actual trailing bytes short. A decoder
+        // that trusts the prefix would try to allocate ~16 EiB.
+        let huge: u64 = u64::MAX;
+        bytes[PAYLOAD_LEN_PREFIX_OFFSET..PAYLOAD_LEN_PREFIX_OFFSET + 8]
+            .copy_from_slice(&huge.to_le_bytes());
+
+        // Must fail cleanly — never panic, never over-allocate, never hang.
+        let result = decode_planet_definition(&bytes);
+        assert!(matches!(result, Err(Error::MalformedData { .. })));
+    }
+
+    /// A more modest but still hostile inflated prefix (1 GiB claimed, a handful
+    /// of bytes supplied) must also fail closed rather than reserving 1 GiB.
+    #[allow(clippy::unwrap_used, clippy::indexing_slicing)]
+    #[test]
+    fn test_decode_rejects_moderately_inflated_payload_prefix() {
+        let original = minimal_planet("alloc-bomb-2");
+        let envelope = encode_planet_definition(&original).unwrap();
+        let mut bytes = bincode::serialize(&envelope).unwrap();
+        assert!(bytes.len() > PAYLOAD_LEN_PREFIX_OFFSET + 8);
+
+        let one_gib: u64 = 1024 * 1024 * 1024;
+        bytes[PAYLOAD_LEN_PREFIX_OFFSET..PAYLOAD_LEN_PREFIX_OFFSET + 8]
+            .copy_from_slice(&one_gib.to_le_bytes());
+        // Truncate so the declared length cannot possibly be satisfied.
+        bytes.truncate(PAYLOAD_LEN_PREFIX_OFFSET + 8 + 4);
+
+        let result = decode_planet_definition(&bytes);
+        assert!(matches!(result, Err(Error::MalformedData { .. })));
+    }
 }
