@@ -108,3 +108,181 @@ pub fn resolve_baseline_opt(
 ) -> Option<Result<(), ResolverError>> {
     resolver.map(|r| r.resolve_baseline(digest))
 }
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::indexing_slicing)]
+mod tests {
+    use super::*;
+
+    /// A minimal in-memory resolver used to exercise the `Option<&dyn …>`
+    /// convenience helpers and the `ResolverError` variants directly, without
+    /// routing through the full `Validator`.
+    struct StubResolver {
+        /// `name@version -> kind` for the single module it knows.
+        module: Option<(String, String, ModuleKind)>,
+        /// The one baseline digest it knows, if any.
+        baseline: Option<String>,
+    }
+
+    impl ModuleResolver for StubResolver {
+        fn resolve_module(
+            &self,
+            name: &str,
+            version: &str,
+            expected: ModuleKind,
+            expected_digest: Option<&str>,
+        ) -> Result<(), ResolverError> {
+            let Some((n, v, kind)) = &self.module else {
+                return Err(ResolverError::NotFound);
+            };
+            if n != name || v != version {
+                return Err(ResolverError::NotFound);
+            }
+            if *kind != expected {
+                return Err(ResolverError::KindMismatch {
+                    expected,
+                    found: *kind,
+                });
+            }
+            if let Some(want) = expected_digest {
+                // The stub pins a fixed digest to make integrity failures observable.
+                let have = "a".repeat(64);
+                if want != have {
+                    return Err(ResolverError::IntegrityMismatch {
+                        expected: want.to_string(),
+                        found: have,
+                    });
+                }
+            }
+            Ok(())
+        }
+
+        fn resolve_baseline(&self, digest: &str) -> Result<(), ResolverError> {
+            match &self.baseline {
+                Some(d) if d == digest => Ok(()),
+                _ => Err(ResolverError::NotFound),
+            }
+        }
+    }
+
+    fn resolver_knowing_evaluator() -> StubResolver {
+        StubResolver {
+            module: Some((
+                "hpdl.vitality.eco".to_string(),
+                "1.0.0".to_string(),
+                ModuleKind::Evaluator,
+            )),
+            baseline: Some("b".repeat(64)),
+        }
+    }
+
+    #[test]
+    fn resolve_module_opt_is_none_without_resolver() {
+        let got = resolve_module_opt(None, "x", "1.0.0", ModuleKind::Evaluator, None);
+        assert!(got.is_none(), "no resolver must yield None (legacy default)");
+    }
+
+    #[test]
+    fn resolve_module_opt_resolves_existing_module() {
+        let r = resolver_knowing_evaluator();
+        let got = resolve_module_opt(
+            Some(&r),
+            "hpdl.vitality.eco",
+            "1.0.0",
+            ModuleKind::Evaluator,
+            None,
+        );
+        assert_eq!(got, Some(Ok(())));
+    }
+
+    #[test]
+    fn resolve_module_opt_reports_not_found() {
+        let r = resolver_knowing_evaluator();
+        let got = resolve_module_opt(Some(&r), "missing", "1.0.0", ModuleKind::Evaluator, None);
+        assert_eq!(got, Some(Err(ResolverError::NotFound)));
+    }
+
+    #[test]
+    fn resolve_module_opt_reports_kind_mismatch() {
+        let r = resolver_knowing_evaluator();
+        let got = resolve_module_opt(
+            Some(&r),
+            "hpdl.vitality.eco",
+            "1.0.0",
+            ModuleKind::ClimateModel,
+            None,
+        );
+        assert_eq!(
+            got,
+            Some(Err(ResolverError::KindMismatch {
+                expected: ModuleKind::ClimateModel,
+                found: ModuleKind::Evaluator,
+            }))
+        );
+    }
+
+    #[test]
+    fn resolve_module_opt_reports_integrity_mismatch() {
+        let r = resolver_knowing_evaluator();
+        let got = resolve_module_opt(
+            Some(&r),
+            "hpdl.vitality.eco",
+            "1.0.0",
+            ModuleKind::Evaluator,
+            Some(&"f".repeat(64)),
+        );
+        assert_eq!(
+            got,
+            Some(Err(ResolverError::IntegrityMismatch {
+                expected: "f".repeat(64),
+                found: "a".repeat(64),
+            }))
+        );
+    }
+
+    #[test]
+    fn resolve_module_opt_integrity_match_is_ok() {
+        let r = resolver_knowing_evaluator();
+        let got = resolve_module_opt(
+            Some(&r),
+            "hpdl.vitality.eco",
+            "1.0.0",
+            ModuleKind::Evaluator,
+            Some(&"a".repeat(64)),
+        );
+        assert_eq!(got, Some(Ok(())));
+    }
+
+    #[test]
+    fn resolve_baseline_opt_is_none_without_resolver() {
+        assert!(resolve_baseline_opt(None, &"b".repeat(64)).is_none());
+    }
+
+    #[test]
+    fn resolve_baseline_opt_resolves_known_digest() {
+        let r = resolver_knowing_evaluator();
+        assert_eq!(resolve_baseline_opt(Some(&r), &"b".repeat(64)), Some(Ok(())));
+    }
+
+    #[test]
+    fn resolve_baseline_opt_reports_not_found() {
+        let r = resolver_knowing_evaluator();
+        assert_eq!(
+            resolve_baseline_opt(Some(&r), &"e".repeat(64)),
+            Some(Err(ResolverError::NotFound))
+        );
+    }
+
+    #[test]
+    fn resolver_error_is_debug_clone_eq() {
+        // The error type is part of the sema public surface; exercise its derives.
+        let err = ResolverError::KindMismatch {
+            expected: ModuleKind::Evaluator,
+            found: ModuleKind::ClimateModel,
+        };
+        let cloned = err.clone();
+        assert_eq!(err, cloned);
+        assert!(format!("{err:?}").contains("KindMismatch"));
+        assert_ne!(err, ResolverError::NotFound);
+    }
+}

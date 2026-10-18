@@ -282,4 +282,146 @@ mod tests {
             .iter()
             .any(|d| d.code == DiagnosticCode::UnsupportedEnvironmentModule));
     }
+
+    // ----- resolver-present climate branch (the `Some(r)` arm) -----
+
+    use std::collections::BTreeMap;
+
+    /// Tiny resolver used to drive the `Some(resolver)` climate-model branch
+    /// directly, independent of the full `Validator` wiring.
+    struct MapResolver {
+        modules: BTreeMap<(String, String), ModuleKind>,
+    }
+
+    impl ModuleResolver for MapResolver {
+        fn resolve_module(
+            &self,
+            name: &str,
+            version: &str,
+            expected: ModuleKind,
+            _expected_digest: Option<&str>,
+        ) -> Result<(), crate::resolver::ResolverError> {
+            match self.modules.get(&(name.to_string(), version.to_string())) {
+                None => Err(crate::resolver::ResolverError::NotFound),
+                Some(&k) if k == expected => Ok(()),
+                Some(&found) => Err(crate::resolver::ResolverError::KindMismatch {
+                    expected,
+                    found,
+                }),
+            }
+        }
+        fn resolve_baseline(
+            &self,
+            _digest: &str,
+        ) -> Result<(), crate::resolver::ResolverError> {
+            Err(crate::resolver::ResolverError::NotFound)
+        }
+    }
+
+    fn climate_def() -> PlanetDefinition {
+        let comp = Composition::new([(GasId::new("co2").unwrap(), 1_000_000)], 0).unwrap();
+        let atm = AtmosphereProfile::new(
+            610,
+            comp,
+            Some(ModuleRef::new("hpdl.climate.gcm", "2.0").unwrap()),
+        )
+        .unwrap();
+        def(EnvironmentDefinition::new(Biosphere::Absent).with_atmosphere(atm))
+    }
+
+    #[test]
+    fn resolved_climate_model_is_clean() {
+        let resolver = MapResolver {
+            modules: BTreeMap::from([(
+                ("hpdl.climate.gcm".to_string(), "2.0".to_string()),
+                ModuleKind::ClimateModel,
+            )]),
+        };
+        let diagnostics = EnvironmentValidator.validate(&climate_def(), Some(&resolver));
+        assert!(
+            diagnostics.is_empty(),
+            "a resolved climate model must clear the unsupported flag: {diagnostics:?}"
+        );
+    }
+
+    #[test]
+    fn unresolved_climate_model_with_resolver_is_flagged() {
+        let resolver = MapResolver {
+            modules: BTreeMap::new(),
+        };
+        let diagnostics = EnvironmentValidator.validate(&climate_def(), Some(&resolver));
+        assert!(diagnostics
+            .iter()
+            .any(|d| d.code == DiagnosticCode::UnsupportedEnvironmentModule));
+    }
+
+    #[test]
+    fn wrong_kind_climate_model_with_resolver_is_flagged() {
+        let resolver = MapResolver {
+            modules: BTreeMap::from([(
+                ("hpdl.climate.gcm".to_string(), "2.0".to_string()),
+                ModuleKind::Evaluator,
+            )]),
+        };
+        let diagnostics = EnvironmentValidator.validate(&climate_def(), Some(&resolver));
+        assert!(diagnostics
+            .iter()
+            .any(|d| d.code == DiagnosticCode::UnsupportedEnvironmentModule));
+    }
+
+    // ----- numeric out-of-bounds branches (defense in depth) -----
+    //
+    // The `hpdl-model` constructors reject these values, so we build the
+    // environment via serde round-trip bypass is NOT available; instead we use
+    // the fact that each sub-profile constructor enforces its own invariant and
+    // confirm the validator agrees on the valid boundary. Where the model
+    // permits a value the validator independently re-checks, we assert the
+    // re-check is exercised on the valid path.
+
+    #[test]
+    fn thermal_boundary_equal_values_pass() {
+        // min == mean == max is the inclusive boundary the validator allows.
+        let env = EnvironmentDefinition::new(Biosphere::Absent)
+            .with_thermal(ThermalProfile::new(200_000, 200_000, 200_000).unwrap());
+        assert!(EnvironmentValidator.validate(&def(env), None).is_empty());
+    }
+
+    #[test]
+    fn hydrosphere_full_coverage_boundary_passes() {
+        // Exactly PPM_SCALE (1_000_000) is in-range; the validator's `>` check
+        // must not flag the boundary.
+        let env = EnvironmentDefinition::new(Biosphere::Absent)
+            .with_hydrosphere(Hydrosphere::new(1_000_000, None).unwrap());
+        assert!(EnvironmentValidator.validate(&def(env), None).is_empty());
+    }
+
+    #[test]
+    fn cryosphere_full_coverage_boundary_passes() {
+        let env = EnvironmentDefinition::new(Biosphere::Absent)
+            .with_cryosphere(Cryosphere::new(1_000_000).unwrap());
+        assert!(EnvironmentValidator.validate(&def(env), None).is_empty());
+    }
+
+    #[test]
+    fn valid_asset_digest_passes_and_each_asset_is_checked() {
+        // Two valid assets exercise the asset-iteration loop body on the clean path.
+        let env = EnvironmentDefinition::new(Biosphere::Absent)
+            .with_asset(
+                AssetRef::new(
+                    "albedo",
+                    AssetKind::Texture,
+                    Digest::new("0".repeat(64)).unwrap(),
+                )
+                .unwrap(),
+            )
+            .with_asset(
+                AssetRef::new(
+                    "heightmap",
+                    AssetKind::Texture,
+                    Digest::new("f".repeat(64)).unwrap(),
+                )
+                .unwrap(),
+            );
+        assert!(EnvironmentValidator.validate(&def(env), None).is_empty());
+    }
 }

@@ -324,4 +324,60 @@ mod tests {
         let diagnostics = OrbitalValidator.validate(&def(body("plain")));
         assert!(diagnostics.is_empty());
     }
+
+    #[test]
+    fn valid_orbit_with_nonzero_angles_passes_element_checks() {
+        // Exercises the pass-through branch of check_element_ranges, check_tilt
+        // and check_circle with non-trivial in-range values (eccentricity,
+        // inclination, and all three circular angles non-zero but valid).
+        let orbit = KeplerianElements::new(
+            227_900_000_000,      // semi-major axis (m), > 0
+            93_400,               // eccentricity ×1e-6, in [0, 1e6)
+            MAX_TILT_MDEG,        // inclination at the inclusive max boundary
+            FULL_CIRCLE_MDEG - 1, // lon ascending node just below full circle
+            180_000,              // arg periapsis
+            359_999,              // mean anomaly at epoch
+            ReferenceFrame::EclipticJ2000,
+        )
+        .unwrap();
+        let b = body("mars").with_orbit(orbit);
+        let diagnostics = OrbitalValidator.validate(&def(b));
+        assert!(
+            !diagnostics
+                .iter()
+                .any(|d| d.code == DiagnosticCode::InvalidOrbitalElement),
+            "valid in-range elements must not be flagged: {diagnostics:?}"
+        );
+    }
+
+    #[test]
+    fn zero_inclination_and_angles_pass() {
+        // Lower-boundary pass-through: inclination 0 and all circular angles 0.
+        let orbit = KeplerianElements::new(
+            149_598_000_000,
+            0,
+            0,
+            0,
+            0,
+            0,
+            ReferenceFrame::EclipticJ2000,
+        )
+        .unwrap();
+        let b = body("earth").with_orbit(orbit);
+        assert!(OrbitalValidator.validate(&def(b)).is_empty());
+    }
+
+    #[test]
+    fn parent_custom_frame_is_unsupported() {
+        // The parent-reference arm of check_unsupported_frames (distinct from the
+        // orbit/rotation arms already covered).
+        let b = body("exotic").with_parent(ParentRef::new(
+            BodyId::new("anomaly").unwrap(),
+            ReferenceFrame::custom("arcane.rift").unwrap(),
+        ));
+        let diagnostics = OrbitalValidator.validate(&def(b));
+        assert!(diagnostics
+            .iter()
+            .any(|d| d.code == DiagnosticCode::UnsupportedOrbitalModel));
+    }
 }

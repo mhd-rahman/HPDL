@@ -485,4 +485,96 @@ mod tests {
         let span_with_source = SourceSpan::with_source(5, 15, "file.hpdl".to_string());
         assert_eq!(span_with_source.source, Some("file.hpdl".to_string()));
     }
+
+    /// Every variant maps to its stable code and the mapping is a bijection.
+    /// This exercises all arms of `DiagnosticCode::code()` (previously several
+    /// arms had no coverage) and guards against accidental code collisions.
+    #[test]
+    fn test_all_diagnostic_codes_are_stable_and_unique() {
+        use std::collections::BTreeSet;
+        let all = [
+            (DiagnosticCode::MissingRequiredField, "E1001"),
+            (DiagnosticCode::InvalidFieldType, "E1002"),
+            (DiagnosticCode::InvalidEnumVariant, "E1003"),
+            (DiagnosticCode::NegativeMass, "E2001"),
+            (DiagnosticCode::InvalidTemperatureRange, "E2002"),
+            (DiagnosticCode::InconsistentOrbitalParameters, "E2003"),
+            (DiagnosticCode::ContradictoryConstraints, "E2004"),
+            (DiagnosticCode::MissingUnit, "E3001"),
+            (DiagnosticCode::IncompatibleDimensions, "E3002"),
+            (DiagnosticCode::InvalidTemperatureDelta, "E3003"),
+            (DiagnosticCode::UnregisteredCustomDimension, "E3004"),
+            (DiagnosticCode::InvalidNumericValue, "E3005"),
+            (DiagnosticCode::NumericOverflow, "E3006"),
+            (DiagnosticCode::UnsortedThresholds, "E4001"),
+            (DiagnosticCode::DuplicateThreshold, "E4002"),
+            (DiagnosticCode::ThresholdOutOfRange, "E4003"),
+            (DiagnosticCode::InvalidScaleBounds, "E4004"),
+            (DiagnosticCode::StatusInWriteList, "E4005"),
+            (DiagnosticCode::FirstThresholdMismatch, "E4006"),
+            (DiagnosticCode::InvalidActionReference, "E5001"),
+            (DiagnosticCode::UndeclaredWrite, "E5002"),
+            (DiagnosticCode::MalformedModuleId, "E6001"),
+            (DiagnosticCode::ConflictingModuleVersions, "E6002"),
+            (DiagnosticCode::MultipleWorldLawsForDomain, "E6003"),
+            (DiagnosticCode::MissingMagicBridge, "E6004"),
+            (DiagnosticCode::UnsupportedWorldLaw, "E6005"),
+            (DiagnosticCode::UnsupportedMagicBridge, "E6006"),
+            (DiagnosticCode::MaxDepthExceeded, "E7001"),
+            (DiagnosticCode::MaxCollectionSizeExceeded, "E7002"),
+            (DiagnosticCode::MaxStringLengthExceeded, "E7003"),
+            (DiagnosticCode::ParentCycle, "E8001"),
+            (DiagnosticCode::ReferenceFrameMismatch, "E8002"),
+            (DiagnosticCode::InvalidOrbitalElement, "E8003"),
+            (DiagnosticCode::UnsupportedOrbitalModel, "E8004"),
+            (DiagnosticCode::CompositionOutOfBounds, "E9101"),
+            (DiagnosticCode::InvalidEnvironmentValue, "E9102"),
+            (DiagnosticCode::UnsupportedEnvironmentModule, "E9103"),
+            (DiagnosticCode::MissingAssetDigest, "E9104"),
+            (DiagnosticCode::IncompleteEvaluatorDeclaration, "E9201"),
+            (DiagnosticCode::UnsupportedEvaluator, "E9202"),
+            (DiagnosticCode::UnsupportedBaseline, "E9203"),
+            (DiagnosticCode::MalformedFieldPath, "E9301"),
+            (DiagnosticCode::UncoveredWrite, "E9302"),
+            (DiagnosticCode::Generic, "E9999"),
+        ];
+        let mut seen = BTreeSet::new();
+        for (code, expected) in all {
+            assert_eq!(code.code(), expected, "{code:?} has an unexpected code");
+            // Display delegates to code().
+            assert_eq!(code.to_string(), expected);
+            assert!(seen.insert(expected), "duplicate code {expected}");
+        }
+        assert_eq!(seen.len(), 44, "all variants must be covered");
+    }
+
+    #[test]
+    fn test_warning_and_info_constructors() {
+        let w = Diagnostic::warning(DiagnosticCode::UnsupportedWorldLaw, "w".to_string());
+        assert_eq!(w.severity, Severity::Warning);
+        let i = Diagnostic::info(DiagnosticCode::Generic, "i".to_string());
+        assert_eq!(i.severity, Severity::Info);
+        let n = Diagnostic::new(DiagnosticCode::Generic, Severity::Info, "n".to_string());
+        assert_eq!(n.severity, Severity::Info);
+    }
+
+    #[test]
+    fn test_with_notes_bulk_and_display_without_source() {
+        let diag = Diagnostic::warning(DiagnosticCode::Generic, "msg".to_string())
+            .with_notes(vec!["one".to_string(), "two".to_string()])
+            .with_span(SourceSpan::new(3, 7));
+        assert_eq!(diag.notes.len(), 2);
+        let display = diag.to_string();
+        // Span with no source uses the "(@start:end)" form.
+        assert!(display.contains("(@3:7)"), "got: {display}");
+        assert!(display.contains("note: one"));
+        assert!(display.contains("note: two"));
+    }
+
+    #[test]
+    fn test_partial_cmp_matches_ord() {
+        let a = Diagnostic::error(DiagnosticCode::Generic, "a".to_string());
+        let b = Diagnostic::error(DiagnosticCode::Generic, "b".to_string());
+        assert_eq!(a.partial_cmp(&b), Some(std::cmp::Ordering::Less));
+    }
 }
