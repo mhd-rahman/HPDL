@@ -150,8 +150,10 @@ Ratifies the native `.hpdl` grammar at **full parity** with the RON frontend
 - **`00-workspace-foundation`** — Initial Cargo workspace with six active crate
   skeletons: `hpdl-model`, `hpdl-sema`, `hpdl-ron`, `hpdl-pir`,
   `hpdl-compiler`, `hpdl-cli`.
-- Pinned Rust toolchain via `rust-toolchain.toml` (1.81.0, OD-01 pending final approval).
-- MSRV set to 1.80 across all crates (OD-02 pending final approval).
+- Pinned Rust toolchain via `rust-toolchain.toml` (OD-01). Initially `1.81.0`
+  pending approval; **ratified to `1.99.1`** — see the ADR 0001 entry below.
+- MSRV declared across all crates (OD-02). Initially `1.80` pending approval;
+  **ratified to `1.85.0`** — see the ADR 0001 entry below.
 - `deny.toml` with MIT/Apache-2.0 license allowlist and advisory policy.
 - `SECURITY.md` with vulnerability disclosure process.
 - `.gitignore` for Rust/OS/editor artifacts.

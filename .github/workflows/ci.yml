@@ -87,7 +87,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          expected="${RUST_MSRV%.*}"   # crates pin "1.85.0"; accept the x.y.z form
           fail=0
           for manifest in crates/*/Cargo.toml; do
             line=$(grep -E '^\s*rust-version\s*=' "$manifest" || true)
