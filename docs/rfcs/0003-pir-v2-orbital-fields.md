@@ -138,3 +138,12 @@ to v3.0. Concretely:
 unreleased. Once v2.0 is released (or otherwise declared locked), any further change
 to the canonical byte layout requires a new major format version (v3.0) and a new
 ADR — it may not be folded into a shipped version.
+
+> **Update (2026-10-19, ADR 0014): v2.0 is now ratified / locked.** PIR format
+> v2.0 is declared final by [ADR 0014](0014-pir-v2-ratified.md). The fold-in
+> allowance above is therefore **closed**: no further change may be folded into
+> v2.0. The next change to the canonical byte layout requires a v3.0 major bump,
+> its own ADR, a migration path, and a reviewed golden-vector update, per
+> [ADR 0013](0013-release-support-policy.md). The v1→v2 break (a v2 decoder
+> rejects v1 bytes, no migration) is ratified and now covered end-to-end by
+> `crates/hpdl-pir/tests/v1_rejection.rs`.

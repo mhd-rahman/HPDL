@@ -93,6 +93,11 @@ stricter and decoder-centric:
 
 ## PIR format-version deprecation policy
 
+The current ratified PIR format is **v2.0** (locked by
+[ADR 0014](rfcs/0014-pir-v2-ratified.md)); the "fold into unreleased v2.0"
+allowance from ADR 0003 is closed, so the next canonical-byte change is a v3.0
+major bump under the rules below.
+
 The PIR format version increments under exactly these rules; all are enforced by
 frozen golden vectors under `crates/hpdl-pir/tests/golden/`.
 
