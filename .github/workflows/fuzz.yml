@@ -11,6 +11,7 @@ on:
     paths:
       - "crates/hpdl-pir/**"
       - "crates/hpdl-ron/**"
+      - "crates/hpdl-syntax/**"
       - "fuzz/**"
       - ".github/workflows/fuzz.yml"
   pull_request:
@@ -18,6 +19,7 @@ on:
     paths:
       - "crates/hpdl-pir/**"
       - "crates/hpdl-ron/**"
+      - "crates/hpdl-syntax/**"
       - "fuzz/**"
   schedule:
     # Weekly longer run, 05:23 UTC Sunday.
@@ -33,9 +35,9 @@ on:
       target:
         description: "Which target(s) to fuzz."
         required: false
-        default: "both"
+        default: "all"
         type: choice
-        options: ["both", "decode_pir", "decode_ron"]
+        options: ["all", "decode_pir", "decode_ron", "parse_hpdl"]
       rss_limit_mb:
         description: "libFuzzer RSS limit in MiB (abort if a single input exceeds it)."
         required: false
@@ -56,7 +58,7 @@ concurrency:
 jobs:
   # ---------------------------------------------------------------------------
   # Resolve which targets to run and for how long. A dispatch may pick a single
-  # target; push / PR / cron always run both.
+  # target; push / PR / cron always run all targets.
   # ---------------------------------------------------------------------------
   plan:
     name: plan
@@ -90,14 +92,15 @@ jobs:
           fi
 
           # Target selection. Only a dispatch may narrow to a single target.
-          sel='both'
+          sel='all'
           if [ "$event" = "workflow_dispatch" ]; then
             sel='${{ github.event.inputs.target }}'
           fi
           case "$sel" in
             decode_pir) targets='["decode_pir"]' ;;
             decode_ron) targets='["decode_ron"]' ;;
-            *)          targets='["decode_pir","decode_ron"]' ;;
+            parse_hpdl) targets='["parse_hpdl"]' ;;
+            *)          targets='["decode_pir","decode_ron","parse_hpdl"]' ;;
           esac
 
           # Validate the duration is a positive integer (dispatch input is free text).
@@ -183,12 +186,14 @@ jobs:
         run: |
           set -euo pipefail
           # Each target gets a seed of the matching input type: the PIR decoder
-          # mutates a valid encoded envelope; the RON loader mutates valid source.
+          # mutates a valid encoded envelope; the RON loader and native `.hpdl`
+          # parser each mutate valid source.
           # -n: never overwrite a corpus entry restored from cache.
           mkdir -p "fuzz/corpus/${{ matrix.target }}"
           case "${{ matrix.target }}" in
             decode_pir) cp -n fuzz/seeds/valid_envelope.bin "fuzz/corpus/decode_pir/" 2>/dev/null || true ;;
             decode_ron) cp -n fuzz/seeds/valid.ron          "fuzz/corpus/decode_ron/" 2>/dev/null || true ;;
+            parse_hpdl) cp -n fuzz/seeds/valid.hpdl         "fuzz/corpus/parse_hpdl/" 2>/dev/null || true ;;
           esac
 
       # Run the target for the full per-target budget. --target gnu avoids

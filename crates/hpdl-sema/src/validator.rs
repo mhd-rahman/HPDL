@@ -17,6 +17,14 @@ use hpdl_model::PlanetDefinition;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ValidatorConfig {
     /// Maximum nesting depth for data structures.
+    ///
+    /// Retained as published configuration, but **not** enforced by the semantic
+    /// validator: by the time a `PlanetDefinition` reaches sema it is an
+    /// already-decoded, schema-bounded in-memory value with no user-controlled
+    /// arbitrary nesting left to measure. Untrusted-input nesting depth is bounded
+    /// at parse time in each frontend instead — `hpdl-syntax`'s recursive-descent
+    /// depth guard and `hpdl-ron`'s structural pre-scan — which is where a hostile
+    /// document can actually drive unbounded recursion.
     pub max_nesting_depth: usize,
     /// Maximum collection size (number of elements).
     pub max_collection_size: usize,
@@ -366,25 +374,6 @@ impl Validator {
             None
         }
     }
-
-    /// Check if nesting depth exceeds the limit.
-    #[allow(dead_code)]
-    fn check_depth_limit(&self, depth: usize, span: Option<SourceSpan>) -> Option<Diagnostic> {
-        if depth > self.config.max_nesting_depth {
-            Some(
-                Diagnostic::error(
-                    DiagnosticCode::MaxDepthExceeded,
-                    format!(
-                        "Nesting depth {} exceeds limit {}",
-                        depth, self.config.max_nesting_depth
-                    ),
-                )
-                .with_span(span.unwrap_or_else(|| SourceSpan::new(0, 0))),
-            )
-        } else {
-            None
-        }
-    }
 }
 
 impl Default for Validator {
@@ -637,7 +626,9 @@ mod tests {
         let definition = PlanetDefinition::new("1.0", body).unwrap();
 
         // Default mode: the non-executable world law is a warning → build succeeds.
-        assert!(Validator::default_config().validate(definition.clone()).is_ok());
+        assert!(Validator::default_config()
+            .validate(definition.clone())
+            .is_ok());
 
         // Strict mode: the same warning is promoted to a failure.
         let strict = Validator::new(ValidatorConfig::strict());

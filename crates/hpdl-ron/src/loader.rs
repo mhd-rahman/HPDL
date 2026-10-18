@@ -66,6 +66,11 @@ impl RonLoader {
         self.security_config
             .validate_file_size(content_size as u64)?;
 
+        // Bound nesting depth and collection length before deserializing. The
+        // deserializer gives no hook to observe these mid-parse, so we scan the
+        // raw source first and fail closed on a resource-limit breach.
+        self.security_config.validate_structure(source.content())?;
+
         // Parse RON content
         let definition: PlanetDefinition = ron::from_str(source.content())?;
 

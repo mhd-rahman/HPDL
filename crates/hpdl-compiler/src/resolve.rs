@@ -92,7 +92,8 @@ impl BuildLock {
     /// # Errors
     ///
     /// Returns [`Error::LockParse`] on a line that does not have exactly three
-    /// whitespace-separated fields, or on a duplicate module name.
+    /// whitespace-separated fields, or on a duplicate module name;
+    /// [`Error::Limit`] if the text exceeds the default source-size bound.
     ///
     /// # Example
     ///
@@ -103,6 +104,30 @@ impl BuildLock {
     /// assert_eq!(lock.get("hpdl.atmosphere").unwrap().version, "1.2.0");
     /// ```
     pub fn parse(text: &str) -> Result<Self, Error> {
+        Self::parse_with_limits(text, &ResourceLimits::default())
+    }
+
+    /// Parse with explicit resource limits (byte-size bound).
+    ///
+    /// Treats the lockfile as untrusted input: an oversized lock is rejected with
+    /// [`Error::Limit`] before any line is processed, mirroring the authoritative
+    /// [`crate::Lockfile::parse_with_limits`]. This keeps the provisional and
+    /// authoritative lock readers consistent so neither can be driven to unbounded
+    /// work by a hostile file.
+    ///
+    /// # Errors
+    ///
+    /// - [`Error::Limit`] if `text` exceeds `limits.max_source_bytes`.
+    /// - [`Error::LockParse`] on a malformed line or a duplicate module name.
+    pub fn parse_with_limits(text: &str, limits: &ResourceLimits) -> Result<Self, Error> {
+        if text.len() > limits.max_source_bytes {
+            return Err(Error::Limit(format!(
+                "build lock is {} bytes, exceeds max {}",
+                text.len(),
+                limits.max_source_bytes
+            )));
+        }
+
         let mut entries: BTreeMap<String, LockedModule> = BTreeMap::new();
 
         for (idx, raw) in text.lines().enumerate() {
@@ -472,6 +497,23 @@ mod tests {
     fn parse_rejects_duplicate_name() {
         let err = BuildLock::parse("m 1.0.0 aaaa\nm 1.0.0 bbbb").unwrap_err();
         assert!(matches!(err, Error::LockParse { line: 2, .. }));
+    }
+
+    #[test]
+    fn parse_rejects_oversized_lock() {
+        let limits = ResourceLimits {
+            max_source_bytes: 8,
+            ..ResourceLimits::default()
+        };
+        let err = BuildLock::parse_with_limits("hpdl.atmosphere 1.2.0 aaaa", &limits).unwrap_err();
+        assert!(matches!(err, Error::Limit(_)));
+    }
+
+    #[test]
+    fn parse_within_limit_is_ok() {
+        let limits = ResourceLimits::default();
+        let lock = BuildLock::parse_with_limits("hpdl.atmosphere 1.2.0 aaaa", &limits).unwrap();
+        assert_eq!(lock.len(), 1);
     }
 
     #[test]

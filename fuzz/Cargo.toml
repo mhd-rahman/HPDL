@@ -14,6 +14,7 @@ cargo-fuzz = true
 libfuzzer-sys = "0.4"
 hpdl-pir = { path = "../crates/hpdl-pir" }
 hpdl-ron = { path = "../crates/hpdl-ron" }
+hpdl-syntax = { path = "../crates/hpdl-syntax" }
 
 [[bin]]
 name = "decode_pir"
@@ -25,6 +26,13 @@ bench = false
 [[bin]]
 name = "decode_ron"
 path = "fuzz_targets/decode_ron.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "parse_hpdl"
+path = "fuzz_targets/parse_hpdl.rs"
 test = false
 doc = false
 bench = false

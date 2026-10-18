@@ -1,7 +1,7 @@
 //! Parser for HPDL syntax.
 
 use crate::diagnostic::{ParseError, ParseErrors};
-use crate::{ast::*, Error, Lexer, SourceSpan, Token, TokenKind};
+use crate::{ast::*, Error, Lexer, ParseLimits, SourceSpan, Token, TokenKind};
 
 /// Parser that converts tokens into an AST.
 #[derive(Debug)]
@@ -15,19 +15,35 @@ pub struct Parser {
     /// Errors collected during a recovering parse. Empty for the strict
     /// single-error path.
     errors: Vec<ParseError>,
+
+    /// Resource limits bounding the work the parser will attempt on untrusted
+    /// input (currently the value-nesting depth guard).
+    limits: ParseLimits,
+
+    /// Current value-nesting depth. Incremented on entry to [`Self::parse_value`]
+    /// and decremented on exit, so it reflects how deep the recursive descent
+    /// currently is and is checked against `limits.max_nesting_depth`.
+    depth: usize,
 }
 
 impl Parser {
-    /// Create a new parser from a token stream.
+    /// Create a new parser from a token stream, using default [`ParseLimits`].
     pub fn new(tokens: Vec<Token>) -> Self {
+        Self::new_with_limits(tokens, ParseLimits::default())
+    }
+
+    /// Create a new parser from a token stream with explicit [`ParseLimits`].
+    pub fn new_with_limits(tokens: Vec<Token>, limits: ParseLimits) -> Self {
         Self {
             tokens,
             pos: 0,
             errors: Vec::new(),
+            limits,
+            depth: 0,
         }
     }
 
-    /// Parse tokens from source text.
+    /// Parse tokens from source text, using default [`ParseLimits`].
     pub fn from_source(source: String) -> Result<Self, Error> {
         let mut lexer = Lexer::new(source);
         let tokens = lexer.lex_all()?;
@@ -301,7 +317,29 @@ impl Parser {
     }
 
     /// Parse a value (literal, list, or object).
+    ///
+    /// This is the single recursion point of the recursive-descent parser: every
+    /// nested list element, object field, tuple element and variant argument
+    /// re-enters here. It therefore owns the nesting-depth guard. The depth is
+    /// incremented on entry and checked against `limits.max_nesting_depth`; if the
+    /// bound is exceeded we fail closed with a typed [`Error::Security`] rather than
+    /// letting the native stack overflow. The counter is always restored before
+    /// returning, including on the error path.
     fn parse_value(&mut self) -> Result<ValueNode, Error> {
+        self.depth += 1;
+        if let Err(e) = self.limits.check_depth(self.depth) {
+            // Restore depth so a recovering caller can keep parsing siblings.
+            self.depth -= 1;
+            return Err(e);
+        }
+        let result = self.parse_value_inner();
+        self.depth -= 1;
+        result
+    }
+
+    /// Body of [`Self::parse_value`]. Kept separate so the depth counter in
+    /// `parse_value` is restored on every return path without a bespoke guard.
+    fn parse_value_inner(&mut self) -> Result<ValueNode, Error> {
         let token = self.current();
 
         match token.kind {

@@ -94,6 +94,124 @@ impl SecurityConfig {
             Ok(())
         }
     }
+
+    /// Scan raw RON source for structural resource limits **before** handing it
+    /// to the deserializer.
+    ///
+    /// `ron::from_str` deserializes directly into the target type and offers no
+    /// hook to observe nesting depth or collection length as it goes, so a
+    /// hostile but syntactically small document could still drive deep recursion
+    /// or allocate an enormous sequence inside the `serde` machinery. This lexical
+    /// pre-scan bounds that work up front: it walks the bytes once, tracking the
+    /// current bracket/paren/brace nesting depth and the number of comma-separated
+    /// elements open at each depth, and fails closed the moment either exceeds its
+    /// configured limit.
+    ///
+    /// The scan is delimiter-aware, not a full parser: it skips the contents of
+    /// string and char literals (honoring `\` escapes) and both `//` line and
+    /// `/* … */` block comments, so delimiters and commas inside them are not
+    /// counted. It is deterministic and allocation-free, and it never panics on
+    /// arbitrary input.
+    ///
+    /// # Errors
+    ///
+    /// - [`Error::NestingDepthExceeded`] if bracket nesting exceeds
+    ///   `max_nesting_depth`.
+    /// - [`Error::CollectionLengthExceeded`] if the number of elements in any one
+    ///   collection exceeds `max_collection_length`.
+    pub fn validate_structure(&self, source: &str) -> Result<(), Error> {
+        // Element count for each currently-open collection level. An entry is
+        // pushed on `(`/`[`/`{` and popped on the matching close; a top-level
+        // comma at that level increments the current count.
+        let mut counts: Vec<usize> = Vec::new();
+        let bytes = source.as_bytes();
+        let mut i = 0usize;
+
+        while i < bytes.len() {
+            let b = bytes[i];
+            match b {
+                // String literal: skip to the closing quote, honoring escapes.
+                b'"' => {
+                    i += 1;
+                    while i < bytes.len() {
+                        match bytes[i] {
+                            b'\\' => i += 2, // skip the escaped byte
+                            b'"' => {
+                                i += 1;
+                                break;
+                            }
+                            _ => i += 1,
+                        }
+                    }
+                }
+                // Char literal: skip to the closing quote, honoring escapes.
+                b'\'' => {
+                    i += 1;
+                    while i < bytes.len() {
+                        match bytes[i] {
+                            b'\\' => i += 2,
+                            b'\'' => {
+                                i += 1;
+                                break;
+                            }
+                            _ => i += 1,
+                        }
+                    }
+                }
+                // Comment: `//` to end of line, or `/* … */` block.
+                b'/' if i + 1 < bytes.len() && bytes[i + 1] == b'/' => {
+                    i += 2;
+                    while i < bytes.len() && bytes[i] != b'\n' {
+                        i += 1;
+                    }
+                }
+                b'/' if i + 1 < bytes.len() && bytes[i + 1] == b'*' => {
+                    i += 2;
+                    while i < bytes.len() {
+                        if bytes[i] == b'*' && i + 1 < bytes.len() && bytes[i + 1] == b'/' {
+                            i += 2;
+                            break;
+                        }
+                        i += 1;
+                    }
+                }
+                // Open a collection / group: deepen and start a fresh count.
+                b'(' | b'[' | b'{' => {
+                    counts.push(0);
+                    // `counts.len()` is the current nesting depth.
+                    if counts.len() > self.max_nesting_depth {
+                        return Err(Error::nesting_depth_exceeded(
+                            counts.len(),
+                            self.max_nesting_depth,
+                        ));
+                    }
+                    i += 1;
+                }
+                // Close a collection / group.
+                b')' | b']' | b'}' => {
+                    counts.pop();
+                    i += 1;
+                }
+                // A comma separates elements at the current depth. An element
+                // count of N commas means N+1 elements, so compare N+1.
+                b',' => {
+                    if let Some(last) = counts.last_mut() {
+                        *last += 1;
+                        if *last + 1 > self.max_collection_length {
+                            return Err(Error::collection_length_exceeded(
+                                *last + 1,
+                                self.max_collection_length,
+                            ));
+                        }
+                    }
+                    i += 1;
+                }
+                _ => i += 1,
+            }
+        }
+
+        Ok(())
+    }
 }
 
 impl Default for SecurityConfig {
@@ -271,5 +389,86 @@ mod tests {
     #[should_panic(expected = "max_collection_length must be greater than 0")]
     fn test_builder_zero_collection_length() {
         let _ = SecurityConfig::builder().max_collection_length(0);
+    }
+
+    #[test]
+    fn validate_structure_accepts_shallow_input() {
+        let config = SecurityConfig::new();
+        let src = r#"PlanetDefinition(body: CelestialBody(id: BodyId("earth")))"#;
+        assert!(config.validate_structure(src).is_ok());
+    }
+
+    #[test]
+    fn validate_structure_rejects_excessive_depth() {
+        let config = SecurityConfig::builder().max_nesting_depth(4).build();
+        // Eight nested brackets: depth 8 > limit 4.
+        let src = "[[[[[[[[]]]]]]]]";
+        assert!(matches!(
+            config.validate_structure(src),
+            Err(Error::NestingDepthExceeded { .. })
+        ));
+    }
+
+    #[test]
+    fn validate_structure_accepts_depth_at_limit() {
+        let config = SecurityConfig::builder().max_nesting_depth(4).build();
+        let src = "[[[[]]]]"; // depth exactly 4
+        assert!(config.validate_structure(src).is_ok());
+    }
+
+    #[test]
+    fn validate_structure_rejects_long_collection() {
+        let config = SecurityConfig::builder().max_collection_length(3).build();
+        // Five elements (four commas) in one list: 5 > limit 3.
+        let src = "[1, 2, 3, 4, 5]";
+        assert!(matches!(
+            config.validate_structure(src),
+            Err(Error::CollectionLengthExceeded { .. })
+        ));
+    }
+
+    #[test]
+    fn validate_structure_accepts_collection_at_limit() {
+        let config = SecurityConfig::builder().max_collection_length(3).build();
+        let src = "[1, 2, 3]"; // exactly three elements
+        assert!(config.validate_structure(src).is_ok());
+    }
+
+    #[test]
+    fn validate_structure_ignores_delimiters_in_strings() {
+        let config = SecurityConfig::builder()
+            .max_nesting_depth(2)
+            .max_collection_length(2)
+            .build();
+        // The brackets and commas live inside a string literal, so they must not
+        // count toward depth or collection length.
+        let src = r#"(name: "[[[[ , , , , ]]]]")"#;
+        assert!(config.validate_structure(src).is_ok());
+    }
+
+    #[test]
+    fn validate_structure_ignores_delimiters_in_comments() {
+        let config = SecurityConfig::builder()
+            .max_nesting_depth(2)
+            .max_collection_length(2)
+            .build();
+        let src = "(\n  // [[[[ , , , ,\n  /* [[[ , , , */\n  a: 1\n)";
+        assert!(config.validate_structure(src).is_ok());
+    }
+
+    #[test]
+    fn validate_structure_handles_escaped_quote_in_string() {
+        let config = SecurityConfig::new();
+        // An escaped quote must not end the string early; the trailing bracket is
+        // still inside the literal.
+        let src = r#"(name: "a\"][")"#;
+        assert!(config.validate_structure(src).is_ok());
+    }
+
+    #[test]
+    fn validate_structure_does_not_panic_on_unterminated_string() {
+        let config = SecurityConfig::new();
+        // Totality: malformed input must return cleanly, never panic.
+        assert!(config.validate_structure(r#"(a: "unterminated"#).is_ok());
     }
 }

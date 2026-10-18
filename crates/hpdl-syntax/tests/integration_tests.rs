@@ -104,6 +104,65 @@ fn oversized_source_hits_limit() {
     ));
 }
 
+/// Build a `.hpdl` source whose `id` field value is a list nested `depth` levels
+/// deep: `id: [[[…]]]`. The innermost value is an empty list. This is the shape
+/// that drives the recursive-descent parser `depth` levels into `parse_value`.
+fn deeply_nested_source(depth: usize) -> SourceFile {
+    let mut body = String::with_capacity(depth * 2 + 64);
+    body.push_str("language hpdl \"1.0\";\nplanet deep {\n    id: ");
+    for _ in 0..depth {
+        body.push('[');
+    }
+    for _ in 0..depth {
+        body.push(']');
+    }
+    body.push_str("\n}\n");
+    SourceFile::from_string("deep.hpdl", body)
+}
+
+#[test]
+fn excessive_nesting_depth_fails_closed() {
+    // A small depth cap must reject input nested beyond it with a typed
+    // Security error rather than descending further.
+    let limits = ParseLimits {
+        max_nesting_depth: 8,
+        ..ParseLimits::default()
+    };
+    let src = deeply_nested_source(64);
+    assert!(matches!(
+        parse_file_with_limits(&src, &limits),
+        Err(Error::Security(_))
+    ));
+}
+
+#[test]
+fn nesting_within_depth_limit_is_accepted() {
+    // Nesting at or below the cap must still parse (the value is a well-formed
+    // list, so it fails later validation, but NOT with a Security/limit error).
+    let limits = ParseLimits {
+        max_nesting_depth: 8,
+        ..ParseLimits::default()
+    };
+    let src = deeply_nested_source(4);
+    assert!(
+        !matches!(
+            parse_file_with_limits(&src, &limits),
+            Err(Error::Security(_))
+        ),
+        "nesting within the limit must not trip the depth guard"
+    );
+}
+
+#[test]
+fn pathological_nesting_does_not_overflow_the_stack() {
+    // Regression for the audit finding: before the depth guard this input
+    // recursed until the native stack overflowed and aborted the process.
+    // Under the default limit it must now fail closed with a typed error and
+    // the test process must survive to make this assertion.
+    let src = deeply_nested_source(100_000);
+    assert!(matches!(parse_file(&src), Err(Error::Security(_))));
+}
+
 #[test]
 fn recovery_returns_ok_on_valid_source() {
     use hpdl_syntax::parse_source_collect_errors;

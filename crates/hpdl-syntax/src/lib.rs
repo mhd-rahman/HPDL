@@ -100,12 +100,12 @@ pub fn parse_file_with_limits(
     // Enforce the source-size budget before doing any work.
     limits.check_source_size(source.content())?;
 
-    // Lex
-    let mut lexer = Lexer::new(source.content().to_string());
+    // Lex under the given limits (bounds identifier length).
+    let mut lexer = Lexer::new_with_limits(source.content().to_string(), *limits);
     let tokens = lexer.lex_all()?;
 
-    // Parse
-    let mut parser = Parser::new(tokens);
+    // Parse under the same limits (bounds value-nesting depth).
+    let mut parser = Parser::new_with_limits(tokens, *limits);
     let ast = parser.parse_file()?;
 
     // Convert to model
@@ -156,7 +156,7 @@ pub fn parse_source_collect_errors(source: &SourceFile) -> Result<FileNode, Pars
         }
     };
 
-    let mut parser = Parser::new(tokens);
+    let mut parser = Parser::new_with_limits(tokens, ParseLimits::default());
     parser.parse_file_recover()
 }
 

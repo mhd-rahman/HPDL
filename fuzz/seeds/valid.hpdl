@@ -1,0 +1,20 @@
+// Seed input for the parse_hpdl fuzz target: a valid native HPDL planet that
+// exercises the language declaration, nested objects, lists, numbers with
+// units, and optional sugar. The fuzzer mutates from here.
+language hpdl "1.0";
+
+planet terra_nova {
+    id: "terra-nova",
+    physical: {
+        mass_kg: 5972000000000000000000000,
+        radius_m: 6371000,
+        rotation_period_s: 86164,
+    },
+    traits: {
+        tags: ["terrestrial", "habitable"],
+    },
+    modules: [],
+    statuses: [],
+    actions: [],
+    migrations: [],
+}
