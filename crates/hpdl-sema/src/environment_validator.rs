@@ -20,8 +20,10 @@
 //! A biosphere of `Absent` or `Unknown` is a valid, first-class value and
 //! produces **no** diagnostic — absence is never treated as an error or a zero.
 
-use hpdl_model::{EnvironmentDefinition, PlanetDefinition, PPM_SCALE};
+use hpdl_model::{EnvironmentDefinition, ModuleKind, PlanetDefinition, PPM_SCALE};
 
+use crate::module_validator::resolver_error_note;
+use crate::resolver::ModuleResolver;
 use crate::{Diagnostic, DiagnosticCode};
 
 /// Validates a body's declared environment.
@@ -29,15 +31,24 @@ pub struct EnvironmentValidator;
 
 impl EnvironmentValidator {
     /// Run all environment checks for a definition.
-    pub fn validate(&self, definition: &PlanetDefinition) -> Vec<Diagnostic> {
+    pub fn validate(
+        &self,
+        definition: &PlanetDefinition,
+        resolver: Option<&dyn ModuleResolver>,
+    ) -> Vec<Diagnostic> {
         let mut diagnostics = Vec::new();
         if let Some(env) = definition.body().environment() {
-            self.check_environment(env, &mut diagnostics);
+            self.check_environment(env, resolver, &mut diagnostics);
         }
         diagnostics
     }
 
-    fn check_environment(&self, env: &EnvironmentDefinition, diagnostics: &mut Vec<Diagnostic>) {
+    fn check_environment(
+        &self,
+        env: &EnvironmentDefinition,
+        resolver: Option<&dyn ModuleResolver>,
+        diagnostics: &mut Vec<Diagnostic>,
+    ) {
         if let Some(atm) = env.atmosphere() {
             // Composition bounds (defensive re-check).
             let composition = atm.composition();
@@ -82,22 +93,49 @@ impl EnvironmentValidator {
                 ));
             }
 
-            // Climate model is a non-executable contract reference (no registry yet).
+            // Resolve the climate model against the registry (ADR 0011). With no
+            // resolver it is flagged non-executable (legacy behavior, error); with
+            // a resolver, an unresolved/wrong-kind/mismatched model is an error, a
+            // resolved one is clean.
             if let Some(model) = atm.climate_model() {
-                diagnostics.push(
-                    Diagnostic::error(
-                        DiagnosticCode::UnsupportedEnvironmentModule,
-                        format!(
-                            "climate model {:?} v{:?} has no registered implementation and is not executable",
+                match resolver {
+                    None => {
+                        diagnostics.push(
+                            Diagnostic::error(
+                                DiagnosticCode::UnsupportedEnvironmentModule,
+                                format!(
+                                    "climate model {:?} v{:?} has no registered implementation and is not executable",
+                                    model.name(),
+                                    model.version()
+                                ),
+                            )
+                            .with_note(
+                                "climate models are accepted as declarations but are not simulated"
+                                    .to_string(),
+                            ),
+                        );
+                    }
+                    Some(r) => {
+                        if let Err(err) = r.resolve_module(
                             model.name(),
-                            model.version()
-                        ),
-                    )
-                    .with_note(
-                        "climate models are accepted as declarations but are not simulated"
-                            .to_string(),
-                    ),
-                );
+                            model.version(),
+                            ModuleKind::ClimateModel,
+                            None,
+                        ) {
+                            diagnostics.push(
+                                Diagnostic::error(
+                                    DiagnosticCode::UnsupportedEnvironmentModule,
+                                    format!(
+                                        "climate model {:?} v{:?} could not be resolved to a registered implementation",
+                                        model.name(),
+                                        model.version()
+                                    ),
+                                )
+                                .with_note(resolver_error_note(&err)),
+                            );
+                        }
+                    }
+                }
             }
         }
 
@@ -208,7 +246,7 @@ mod tests {
                 )
                 .unwrap(),
             );
-        let diagnostics = EnvironmentValidator.validate(&def(env));
+        let diagnostics = EnvironmentValidator.validate(&def(env), None);
         assert!(
             diagnostics.is_empty(),
             "expected clean, got {diagnostics:?}"
@@ -218,15 +256,15 @@ mod tests {
     #[test]
     fn absent_biosphere_produces_no_diagnostic() {
         let env = EnvironmentDefinition::new(Biosphere::Absent);
-        assert!(EnvironmentValidator.validate(&def(env)).is_empty());
+        assert!(EnvironmentValidator.validate(&def(env), None).is_empty());
         let env2 = EnvironmentDefinition::new(Biosphere::Unknown);
-        assert!(EnvironmentValidator.validate(&def(env2)).is_empty());
+        assert!(EnvironmentValidator.validate(&def(env2), None).is_empty());
     }
 
     #[test]
     fn no_environment_produces_no_diagnostic() {
         let d = PlanetDefinition::new("1.0", body()).unwrap();
-        assert!(EnvironmentValidator.validate(&d).is_empty());
+        assert!(EnvironmentValidator.validate(&d, None).is_empty());
     }
 
     #[test]
@@ -239,7 +277,7 @@ mod tests {
         )
         .unwrap();
         let env = EnvironmentDefinition::new(Biosphere::Absent).with_atmosphere(atm);
-        let diagnostics = EnvironmentValidator.validate(&def(env));
+        let diagnostics = EnvironmentValidator.validate(&def(env), None);
         assert!(diagnostics
             .iter()
             .any(|d| d.code == DiagnosticCode::UnsupportedEnvironmentModule));

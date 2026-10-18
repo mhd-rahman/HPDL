@@ -1,8 +1,25 @@
 //! Module reference and world law validation.
 
+use crate::resolver::{ModuleResolver, ResolverError};
 use crate::{Diagnostic, DiagnosticCode};
-use hpdl_model::PlanetDefinition;
+use hpdl_model::{ModuleKind, PlanetDefinition};
 use std::collections::BTreeSet;
+
+/// Render a [`ResolverError`] as a human-readable diagnostic note explaining the
+/// resolution failure.
+pub(crate) fn resolver_error_note(err: &ResolverError) -> String {
+    match err {
+        ResolverError::NotFound => "no registered implementation for this module".to_string(),
+        ResolverError::KindMismatch { expected, found } => format!(
+            "registered as a {} module, but a {} module is required here",
+            found.as_str(),
+            expected.as_str()
+        ),
+        ResolverError::IntegrityMismatch { expected, found } => {
+            format!("content-digest mismatch (expected {expected}, registered {found})")
+        }
+    }
+}
 
 /// Validator for module references and world laws.
 pub struct ModuleValidator;
@@ -103,12 +120,22 @@ impl ModuleValidator {
     /// - **Magic affects physical state only through a declared bridge** →
     ///   `E6004` (`MissingMagicBridge`). A magic law reaching a physical domain
     ///   with no [`MagicBridge`](hpdl_model::MagicBridge) fails.
-    /// - **Non-executable declaration** → `E6005` (`UnsupportedWorldLaw`), a
-    ///   warning: a well-formed law whose module has no registered
-    ///   implementation is accepted as a declaration but never simulated. The
-    ///   module registry is deferred (feature 14), so every declared law is
-    ///   flagged at this stage.
-    pub fn validate_world_laws(&self, definition: &PlanetDefinition) -> Vec<Diagnostic> {
+    /// - **Resolution** (ADR 0011) → the law module is resolved against the
+    ///   supplied [`ModuleResolver`] as a [`ModuleKind::WorldLaw`], and any
+    ///   declared bridge module as a [`ModuleKind::MagicBridge`]:
+    ///   - **No resolver** → every law is flagged `E6005` (`UnsupportedWorldLaw`)
+    ///     as a **warning** (the legacy "registry deferred" behavior): accepted
+    ///     as a declaration, never simulated.
+    ///   - **Resolver present, resolution fails** (not found / wrong kind /
+    ///     digest mismatch) → `E6005` for the law module, `E6006`
+    ///     (`UnsupportedMagicBridge`) for the bridge module, both **errors**.
+    ///   - **Resolver present, resolution succeeds** → no diagnostic; the
+    ///     declaration is backed by a registered implementation.
+    pub fn validate_world_laws(
+        &self,
+        definition: &PlanetDefinition,
+        resolver: Option<&dyn ModuleResolver>,
+    ) -> Vec<Diagnostic> {
         use std::collections::{BTreeMap, BTreeSet};
 
         let mut diagnostics = Vec::new();
@@ -182,20 +209,86 @@ impl ModuleValidator {
                     .insert(module_name.clone());
             }
 
-            // Every declared law is non-executable at this stage (E6005, warning).
-            diagnostics.push(
-                Diagnostic::warning(
-                    DiagnosticCode::UnsupportedWorldLaw,
-                    format!(
-                        "World law '{}' has no registered implementation",
-                        module_name
-                    ),
-                )
-                .with_note(
-                    "Accepted as a declaration, never simulated; the module registry is deferred"
-                        .to_string(),
-                ),
-            );
+            // Resolve the law module against the registry (ADR 0011).
+            match resolver {
+                None => {
+                    // Legacy default: no registry, so every law is a non-executable
+                    // warning — accepted as a declaration, never simulated.
+                    diagnostics.push(
+                        Diagnostic::warning(
+                            DiagnosticCode::UnsupportedWorldLaw,
+                            format!(
+                                "World law '{}' has no registered implementation",
+                                module_name
+                            ),
+                        )
+                        .with_note(
+                            "Accepted as a declaration, never simulated; no module registry supplied"
+                                .to_string(),
+                        ),
+                    );
+                }
+                Some(r) => {
+                    if let Err(err) = r.resolve_module(
+                        law.module().name(),
+                        law.module().version(),
+                        ModuleKind::WorldLaw,
+                        None,
+                    ) {
+                        diagnostics.push(
+                            Diagnostic::error(
+                                DiagnosticCode::UnsupportedWorldLaw,
+                                format!(
+                                    "World law '{}' could not be resolved to a registered implementation",
+                                    module_name
+                                ),
+                            )
+                            .with_note(resolver_error_note(&err)),
+                        );
+                    }
+                }
+            }
+
+            // Resolve the bridge module, if any, as a MagicBridge (E6006).
+            if let Some(bridge) = law.bridge() {
+                let bridge_name = bridge.module().name().to_string();
+                match resolver {
+                    None => {
+                        diagnostics.push(
+                            Diagnostic::warning(
+                                DiagnosticCode::UnsupportedMagicBridge,
+                                format!(
+                                    "Magic bridge module '{}' has no registered implementation",
+                                    bridge_name
+                                ),
+                            )
+                            .with_note(
+                                "Accepted as a declaration, never executed; no module registry supplied"
+                                    .to_string(),
+                            ),
+                        );
+                    }
+                    Some(r) => {
+                        if let Err(err) = r.resolve_module(
+                            bridge.module().name(),
+                            bridge.module().version(),
+                            ModuleKind::MagicBridge,
+                            None,
+                        ) {
+                            diagnostics.push(
+                                Diagnostic::error(
+                                    DiagnosticCode::UnsupportedMagicBridge,
+                                    format!(
+                                        "Magic bridge '{}' could not be resolved to a registered implementation",
+                                        bridge_name
+                                    ),
+                                )
+                                .with_note(resolver_error_note(&err)),
+                            );
+                        }
+                    }
+                }
+            }
         }
 
         // One authoritative law per exclusive domain (E6003).
@@ -335,7 +428,7 @@ mod tests {
     fn test_no_world_laws_is_clean() {
         let validator = ModuleValidator::new();
         let def = minimal_definition();
-        assert!(validator.validate_world_laws(&def).is_empty());
+        assert!(validator.validate_world_laws(&def, None).is_empty());
     }
 
     #[test]
@@ -349,7 +442,7 @@ mod tests {
         )
         .unwrap();
         let def = body_with_laws(vec![law]);
-        let diags = validator.validate_world_laws(&def);
+        let diags = validator.validate_world_laws(&def, None);
         // Only the non-executable warning, no errors.
         assert!(diags.iter().all(|d| d.severity != crate::Severity::Error));
         assert!(diags
@@ -376,7 +469,7 @@ mod tests {
         )
         .unwrap();
         let def = body_with_laws(vec![law1, law2]);
-        let diags = validator.validate_world_laws(&def);
+        let diags = validator.validate_world_laws(&def, None);
         assert!(diags
             .iter()
             .any(|d| d.code == DiagnosticCode::MultipleWorldLawsForDomain));
@@ -396,7 +489,7 @@ mod tests {
         )
         .unwrap();
         let def = body_with_laws(vec![law]);
-        let diags = validator.validate_world_laws(&def);
+        let diags = validator.validate_world_laws(&def, None);
         assert!(diags
             .iter()
             .any(|d| d.code == DiagnosticCode::MissingMagicBridge));
@@ -422,7 +515,7 @@ mod tests {
         )
         .unwrap();
         let def = body_with_laws(vec![law]);
-        let diags = validator.validate_world_laws(&def);
+        let diags = validator.validate_world_laws(&def, None);
         assert!(diags
             .iter()
             .all(|d| d.code != DiagnosticCode::MissingMagicBridge));
@@ -439,7 +532,7 @@ mod tests {
         )
         .unwrap();
         let def = body_with_laws(vec![law]);
-        let diags = validator.validate_world_laws(&def);
+        let diags = validator.validate_world_laws(&def, None);
         assert!(diags
             .iter()
             .all(|d| d.code != DiagnosticCode::MissingMagicBridge));
@@ -463,7 +556,7 @@ mod tests {
         )
         .unwrap();
         let def = body_with_laws(vec![law1, law2]);
-        let diags = validator.validate_world_laws(&def);
+        let diags = validator.validate_world_laws(&def, None);
         assert!(diags
             .iter()
             .any(|d| d.code == DiagnosticCode::ConflictingModuleVersions));
@@ -487,7 +580,7 @@ mod tests {
         )
         .unwrap();
         let def = body_with_laws(vec![law1, law2]);
-        let diags = validator.validate_world_laws(&def);
+        let diags = validator.validate_world_laws(&def, None);
         assert!(diags
             .iter()
             .all(|d| d.code != DiagnosticCode::MultipleWorldLawsForDomain));

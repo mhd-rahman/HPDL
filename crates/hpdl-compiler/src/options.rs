@@ -5,6 +5,7 @@
 //! filesystem), so a given set of options always drives the same behavior.
 
 use crate::lockfile::Lockfile;
+use crate::registry::ModuleRegistry;
 use crate::resolve::BuildLock;
 use hpdl_sema::ValidatorConfig;
 
@@ -65,9 +66,22 @@ pub struct CompileOptions {
 
     /// Resource limits enforced during compilation.
     pub limits: ResourceLimits,
+
+    /// Optional module registry (ADR 0011). When present, the validator resolves
+    /// declared evaluator / climate-model / world-law / magic-bridge references
+    /// and baseline digests against it (existence, kind, integrity). When absent,
+    /// those references are flagged non-executable, as before the registry.
+    pub registry: Option<ModuleRegistry>,
 }
 
 impl CompileOptions {
+    /// Construct options with the given module registry, keeping other defaults.
+    #[must_use]
+    pub fn with_registry(mut self, registry: ModuleRegistry) -> Self {
+        self.registry = Some(registry);
+        self
+    }
+
     /// Construct options with the given provisional lockfile, keeping other defaults.
     #[must_use]
     pub fn with_lock(mut self, lock: BuildLock) -> Self {
@@ -108,6 +122,7 @@ mod tests {
         let options = CompileOptions::default();
         assert!(options.lock.is_none());
         assert!(options.package_lock.is_none());
+        assert!(options.registry.is_none());
         assert_eq!(options.limits, ResourceLimits::default());
         assert_eq!(options.validator, ValidatorConfig::default());
     }

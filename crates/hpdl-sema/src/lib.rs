@@ -46,6 +46,7 @@ pub mod diagnostic;
 pub mod environment_validator;
 pub mod module_validator;
 pub mod orbital_validator;
+pub mod resolver;
 pub mod status_validator;
 pub mod type_checker;
 pub mod unit_registry;
@@ -53,6 +54,7 @@ pub mod validated;
 pub mod validator;
 
 pub use diagnostic::{Diagnostic, DiagnosticCode, Severity, SourceSpan};
+pub use resolver::{ModuleResolver, ResolverError};
 pub use validated::{ValidatedDefinition, ValidationMetadata};
 pub use validator::{Validator, ValidatorConfig};
 

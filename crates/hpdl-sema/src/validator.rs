@@ -5,6 +5,7 @@ use crate::constraint_solver::ConstraintSolver;
 use crate::environment_validator::EnvironmentValidator;
 use crate::module_validator::ModuleValidator;
 use crate::orbital_validator::OrbitalValidator;
+use crate::resolver::ModuleResolver;
 use crate::status_validator::StatusValidator;
 use crate::type_checker::TypeChecker;
 use crate::unit_registry::UnitRegistry;
@@ -97,10 +98,16 @@ pub struct Validator {
     module_validator: ModuleValidator,
     orbital_validator: OrbitalValidator,
     environment_validator: EnvironmentValidator,
+    /// Optional module registry the module/status/environment passes consult to
+    /// back declared module references (ADR 0011). `None` = no registry: every
+    /// module reference is flagged non-executable, exactly as before the registry
+    /// existed.
+    resolver: Option<Box<dyn ModuleResolver>>,
 }
 
 impl Validator {
-    /// Create a new validator with the given configuration.
+    /// Create a new validator with the given configuration and no module
+    /// registry.
     pub fn new(config: ValidatorConfig) -> Self {
         Self {
             type_checker: TypeChecker::new(config.strict_mode),
@@ -111,13 +118,24 @@ impl Validator {
             module_validator: ModuleValidator,
             orbital_validator: OrbitalValidator,
             environment_validator: EnvironmentValidator,
+            resolver: None,
             config,
         }
     }
 
-    /// Create a validator with default configuration.
+    /// Create a validator with default configuration and no module registry.
     pub fn default_config() -> Self {
         Self::new(ValidatorConfig::default())
+    }
+
+    /// Attach a module registry (a [`ModuleResolver`]) that the module, status,
+    /// and environment passes consult to resolve declared module references
+    /// against registered implementations (existence, kind, integrity — ADR
+    /// 0011). Without this, module references are flagged non-executable.
+    #[must_use]
+    pub fn with_resolver(mut self, resolver: Box<dyn ModuleResolver>) -> Self {
+        self.resolver = Some(resolver);
+        self
     }
 
     /// Validate a planet definition.
@@ -249,7 +267,10 @@ impl Validator {
             self.status_validator
                 .validate_action_status_writes(definition),
         );
-        diagnostics.extend(self.status_validator.validate_status_vitality(definition));
+        diagnostics.extend(
+            self.status_validator
+                .validate_status_vitality(definition, self.resolver.as_deref()),
+        );
         diagnostics
     }
 
@@ -264,7 +285,10 @@ impl Validator {
     fn validate_modules(&self, definition: &PlanetDefinition) -> Vec<Diagnostic> {
         let mut diagnostics = Vec::new();
         diagnostics.extend(self.module_validator.validate_modules(definition));
-        diagnostics.extend(self.module_validator.validate_world_laws(definition));
+        diagnostics.extend(
+            self.module_validator
+                .validate_world_laws(definition, self.resolver.as_deref()),
+        );
         diagnostics
     }
 
@@ -275,7 +299,8 @@ impl Validator {
 
     /// Validate the declared planetary environment.
     fn validate_environment(&self, definition: &PlanetDefinition) -> Vec<Diagnostic> {
-        self.environment_validator.validate(definition)
+        self.environment_validator
+            .validate(definition, self.resolver.as_deref())
     }
 
     // Helper methods

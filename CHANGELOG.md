@@ -8,6 +8,68 @@ for published crates (`hpdl-pir`, and others as they stabilize).
 
 ---
 
+## [Unreleased] — Feature 14: Module registry (existence / kind / integrity) (2026-10-18)
+
+Adds the compile-time module registry that backs the previously-unconditional
+"no registered implementation" flags, and closes two silent gaps the audit found
+(magic-bridge modules and baseline artifacts were never resolved). Recorded in
+`docs/rfcs/0011-module-registry.md`. The registry resolves and verifies; it never
+executes. **No PIR change.**
+
+### Added — `hpdl-model`
+
+- `ModuleKind` enum (`Evaluator`, `ClimateModel`, `WorldLaw`, `MagicBridge`,
+  `Library`, `Baseline`) and `RegisteredModule` descriptor (`PackageId` + kind +
+  `Digest`). Pure declarations; resolve nothing, execute nothing.
+
+### Added — `hpdl-sema`
+
+- A `ModuleResolver` trait + `ResolverError` (`NotFound` / `KindMismatch` /
+  `IntegrityMismatch`) — the seam the single validator consults. `Validator` gains
+  `with_resolver(..)`; **no resolver = exact legacy behavior** (references flagged
+  non-executable). sema keeps its model-only dependency.
+- Two new stable diagnostic codes: `E6006 UnsupportedMagicBridge` and
+  `E9203 UnsupportedBaseline`.
+- The world-law (`E6005`), magic-bridge (`E6006`), evaluator (`E9202`),
+  climate-model (`E9103`), and baseline (`E9203`) checks now resolve against a
+  supplied registry: registered + correct kind + matching digest → clean;
+  otherwise the same code, now a genuine resolution error. With no registry,
+  world-law/bridge stay non-blocking warnings and the others stay errors —
+  unchanged defaults.
+
+### Added — `hpdl-compiler`
+
+- `ModuleRegistry` implementing `hpdl_sema::ModuleResolver`: an offline,
+  deterministic index verifying **existence, kind, and integrity** (digest match,
+  reusing `hpdl_model::Digest`). No I/O, no fetch, no execution.
+- `CompileOptions::with_registry(..)`; the validator is attached to the registry
+  during compilation. Re-exports `ModuleKind`/`RegisteredModule`/`Digest` for
+  downstream registry construction.
+- `tests/registry.rs`: an evaluator fails without a registry, compiles with a
+  matching one, fails with a non-matching one, and a registry does **not** change
+  canonical PIR bytes.
+
+### Scope and deferrals (ADR 0011)
+
+- **Full set** resolved: evaluator, climate-model, world-law, magic-bridge,
+  library modules, and baseline artifacts.
+- **Deferred — authenticity / trust roots (ADR 0008 OD-14.4):** the registry
+  verifies integrity, existence, and kind only; *who signed* a module and *which
+  registries/trust roots are trusted* is left as a surfaced, un-coded seam pending
+  a dedicated ADR.
+- **Out of registry scope — custom orbital reference frame (`E8004`):** a custom
+  `ReferenceFrame` is a frame variant, not a `ModuleRef`, so it stays a
+  non-executable frame-variant flag, unchanged.
+
+### Compatibility
+
+- Additive public types across `hpdl-model` / `hpdl-sema` / `hpdl-compiler`;
+  existing `Validator` / `CompileOptions` constructors unchanged (resolver/registry
+  default to `None`). **No PIR format change**; `PirVersion::CURRENT` and golden
+  vectors untouched (asserted by `registry_does_not_change_pir_bytes`).
+
+---
+
 ## [Unreleased] — Feature 05: Native HPDL grammar v1.0 ratified (2026-10-18)
 
 Ratifies the native `.hpdl` grammar at **full parity** with the RON frontend

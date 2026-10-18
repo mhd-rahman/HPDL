@@ -65,3 +65,4 @@ What tests need to be added, changed, or removed as a result?
 | [0008](0008-stdlib-packages-lockfile.md) | Immutable Standard-Library Packages & Lockfile | Accepted |
 | [0009](0009-cli-tooling.md) | HPDL CLI (`hpdl`) Tooling | Accepted |
 | [0010](0010-native-hpdl-grammar-v1.md) | Native HPDL Grammar v1.0 (ratification) | Accepted |
+| [0011](0011-module-registry.md) | Compile-time Module Registry (existence, kind, integrity) | Accepted |

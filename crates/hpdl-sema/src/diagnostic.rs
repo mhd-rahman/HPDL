@@ -121,6 +121,9 @@ pub enum DiagnosticCode {
     /// A declared world-law / magic module has no registered implementation.
     /// Accepted as a declaration, never simulated.
     UnsupportedWorldLaw,
+    /// A declared magic-bridge module has no registered implementation of the
+    /// correct kind. Accepted as a declaration, never executed.
+    UnsupportedMagicBridge,
 
     // Security and limits (E7000 series)
     /// Input exceeds maximum nesting depth.
@@ -158,6 +161,8 @@ pub enum DiagnosticCode {
     IncompleteEvaluatorDeclaration,
     /// A status references an evaluator with no registered implementation.
     UnsupportedEvaluator,
+    /// A status references a baseline artifact with no registered content.
+    UnsupportedBaseline,
 
     // Action capability validation (E9300 series)
     /// An action read/write field path is malformed.
@@ -200,6 +205,7 @@ impl DiagnosticCode {
             Self::MultipleWorldLawsForDomain => "E6003",
             Self::MissingMagicBridge => "E6004",
             Self::UnsupportedWorldLaw => "E6005",
+            Self::UnsupportedMagicBridge => "E6006",
             Self::MaxDepthExceeded => "E7001",
             Self::MaxCollectionSizeExceeded => "E7002",
             Self::MaxStringLengthExceeded => "E7003",
@@ -213,6 +219,7 @@ impl DiagnosticCode {
             Self::MissingAssetDigest => "E9104",
             Self::IncompleteEvaluatorDeclaration => "E9201",
             Self::UnsupportedEvaluator => "E9202",
+            Self::UnsupportedBaseline => "E9203",
             Self::MalformedFieldPath => "E9301",
             Self::UncoveredWrite => "E9302",
             Self::Generic => "E9999",
