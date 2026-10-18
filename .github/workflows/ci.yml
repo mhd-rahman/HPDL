@@ -127,8 +127,20 @@ jobs:
 
   # ---------------------------------------------------------------------------
   # Cross-platform digest parity — the determinism steering requires comparing
-  # PIR / replay hashes ACROSS OS jobs, not just pass/fail per job. Each OS
-  # emits the canonical digests of a fixed set of inputs; this job diffs them.
+  # PIR / replay hashes ACROSS OS jobs, not just pass/fail per job. Each OS runs
+  # the `emit_digests` example, which:
+  #   1. compiles a fixed set of determinism-sensitive fixtures (gas-composition
+  #      map ordering, full orbital/thermal/hydrosphere surface, large
+  #      magnitudes, and a locked package closure);
+  #   2. compiles the dual-frontend fixture through BOTH native .hpdl and RON and
+  #      asserts byte-identical PIR before emitting (fails here on any OS if the
+  #      frontends diverge — ADR 0010);
+  #   3. self-checks every emitted digest against the committed golden vector
+  #      tests/golden/digest_parity.txt, so a canonical-byte change that is
+  #      identical on all three platforms still fails (determinism steering:
+  #      no silent vector regeneration).
+  # The compare job then diffs the per-OS outputs to prove cross-OS byte
+  # identity. Regenerate the golden deliberately with HPDL_BLESS_DIGESTS=1.
   # ---------------------------------------------------------------------------
   digest-parity-emit:
     name: digest-parity emit (${{ matrix.os }})
