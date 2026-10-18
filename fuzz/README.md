@@ -58,8 +58,27 @@ libc is incompatible with AddressSanitizer.)
 - `fuzz/seeds/` — committed, well-formed inputs the fuzzer mutates from
   (`valid_envelope.bin` for PIR, `valid.ron` for RON).
 - `fuzz/corpus/` — the growing corpus (git-ignored; regenerated from seeds).
-- `fuzz/artifacts/` — crash reproducers. **Commit these** as regression cases when a
-  crash is found, and add a matching unit/integration test against the real decoder.
+- `fuzz/artifacts/<target>/` — crash reproducers. **Commit these** as regression
+  cases when a crash is found. No test edit is required: the workspace test
+  `crates/hpdl-compiler/tests/fuzz_regressions.rs` automatically replays every file
+  under `fuzz/artifacts/decode_pir/` and `fuzz/artifacts/decode_ron/` through the
+  real decoder entry points under `cargo test --workspace`, asserting totality (no
+  panic/hang) on Linux, macOS, and Windows. Committing the reproducer turns it into
+  an enforced regression.
+
+## Running an extended session (hours)
+
+The `Fuzz` workflow supports a manual `workflow_dispatch` with a real per-target
+budget. From the GitHub Actions UI (or `gh workflow run fuzz.yml`), set:
+
+- `max_total_time` — seconds **per target** (e.g. `14400` = 4h). Each target runs
+  the full budget independently; they are not split.
+- `target` — `both` (default), `decode_pir`, or `decode_ron`.
+- `rss_limit_mb` — libFuzzer RSS cap (default `2048`).
+
+The run uploads the evolved corpus (`fuzz-corpus-<target>`) on every run and, on a
+crash, uploads the reproducer (`fuzz-artifacts-<target>`) and also prints it
+base64-encoded in the job log for retrieval without runner access.
 
 ## Scope
 

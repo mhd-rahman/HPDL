@@ -3,18 +3,21 @@ name: Fuzz
 # cargo-fuzz requires a nightly toolchain and libfuzzer-sys. The fuzz crate is
 # excluded from the stable workspace, so this is a dedicated job. On PRs/pushes
 # it runs a short time-boxed smoke fuzz to catch regressions; the weekly cron
-# runs longer. Fuzzing supplements — it does not replace — the test suite.
+# runs longer; and a manual workflow_dispatch can run a real extended session
+# (hours) per target. Fuzzing supplements — it does not replace — the test suite.
 on:
   push:
     branches: ["main"]
     paths:
       - "crates/hpdl-pir/**"
+      - "crates/hpdl-ron/**"
       - "fuzz/**"
       - ".github/workflows/fuzz.yml"
   pull_request:
     branches: ["main"]
     paths:
       - "crates/hpdl-pir/**"
+      - "crates/hpdl-ron/**"
       - "fuzz/**"
   schedule:
     # Weekly longer run, 05:23 UTC Sunday.
@@ -22,9 +25,21 @@ on:
   workflow_dispatch:
     inputs:
       max_total_time:
-        description: "Fuzz duration in seconds"
+        description: >-
+          Per-target fuzz duration in SECONDS. Each selected target runs for the
+          full budget independently (not split). Example: 14400 = 4 hours.
         required: false
-        default: "120"
+        default: "14400"
+      target:
+        description: "Which target(s) to fuzz."
+        required: false
+        default: "both"
+        type: choice
+        options: ["both", "decode_pir", "decode_ron"]
+      rss_limit_mb:
+        description: "libFuzzer RSS limit in MiB (abort if a single input exceeds it)."
+        required: false
+        default: "2048"
 
 env:
   CARGO_TERM_COLOR: always
@@ -32,10 +47,91 @@ env:
 permissions:
   contents: read
 
+# A new dispatch / push supersedes an in-flight run on the same ref. An extended
+# manual session is long-lived; don't let a stale run keep a runner busy.
+concurrency:
+  group: fuzz-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  fuzz:
-    name: fuzz decode_pir
+  # ---------------------------------------------------------------------------
+  # Resolve which targets to run and for how long. A dispatch may pick a single
+  # target; push / PR / cron always run both.
+  # ---------------------------------------------------------------------------
+  plan:
+    name: plan
     runs-on: ubuntu-latest
+    outputs:
+      targets: ${{ steps.plan.outputs.targets }}
+      seconds: ${{ steps.plan.outputs.seconds }}
+      rss: ${{ steps.plan.outputs.rss }}
+    steps:
+      - name: Resolve matrix and budget
+        id: plan
+        shell: bash
+        run: |
+          set -euo pipefail
+          event='${{ github.event_name }}'
+
+          # Per-target duration budget.
+          if [ "$event" = "schedule" ]; then
+            seconds=3600          # weekly cron: 1 hour per target
+          elif [ "$event" = "workflow_dispatch" ]; then
+            seconds='${{ github.event.inputs.max_total_time }}'
+          else
+            seconds=120           # push / PR smoke
+          fi
+
+          # RSS limit (dispatch-tunable; fixed otherwise).
+          if [ "$event" = "workflow_dispatch" ]; then
+            rss='${{ github.event.inputs.rss_limit_mb }}'
+          else
+            rss=2048
+          fi
+
+          # Target selection. Only a dispatch may narrow to a single target.
+          sel='both'
+          if [ "$event" = "workflow_dispatch" ]; then
+            sel='${{ github.event.inputs.target }}'
+          fi
+          case "$sel" in
+            decode_pir) targets='["decode_pir"]' ;;
+            decode_ron) targets='["decode_ron"]' ;;
+            *)          targets='["decode_pir","decode_ron"]' ;;
+          esac
+
+          # Validate the duration is a positive integer (dispatch input is free text).
+          if ! printf '%s' "$seconds" | grep -Eq '^[1-9][0-9]*$'; then
+            echo "::error::max_total_time must be a positive integer number of seconds (got '$seconds')"
+            exit 1
+          fi
+          if ! printf '%s' "$rss" | grep -Eq '^[1-9][0-9]*$'; then
+            echo "::error::rss_limit_mb must be a positive integer (got '$rss')"
+            exit 1
+          fi
+
+          echo "targets=$targets" >> "$GITHUB_OUTPUT"
+          echo "seconds=$seconds" >> "$GITHUB_OUTPUT"
+          echo "rss=$rss"         >> "$GITHUB_OUTPUT"
+          echo "Planned: targets=$targets, seconds=$seconds/target, rss=${rss}MiB (event=$event)"
+
+  # ---------------------------------------------------------------------------
+  # One matrix leg per target so each gets the FULL budget independently and a
+  # crash in one target does not abort the other (fail-fast: false).
+  # ---------------------------------------------------------------------------
+  fuzz:
+    name: fuzz ${{ matrix.target }} (${{ needs.plan.outputs.seconds }}s)
+    needs: plan
+    runs-on: ubuntu-latest
+    # An extended dispatch can run for hours; give the job headroom beyond the
+    # fuzz budget for build, corpus minimization, and artifact upload. GitHub
+    # caps job time at 6h on hosted runners — keep the per-target budget under
+    # ~5h (18000s) to leave room for the surrounding steps.
+    timeout-minutes: 350
+    strategy:
+      fail-fast: false
+      matrix:
+        target: ${{ fromJSON(needs.plan.outputs.targets) }}
 
     steps:
       - name: Checkout
@@ -69,58 +165,96 @@ jobs:
         with:
           tool: cargo-fuzz
 
-      - name: Cache fuzz build artifacts
+      # Cache the build AND the evolved corpus keyed by target, so coverage
+      # accumulates across runs instead of starting cold from the seeds each time.
+      - name: Cache fuzz build artifacts and corpus
         uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/registry/index/
             ~/.cargo/registry/cache/
             fuzz/target/
-          key: ${{ runner.os }}-fuzz-${{ hashFiles('fuzz/Cargo.toml', '**/Cargo.lock') }}
-          restore-keys: ${{ runner.os }}-fuzz-
+            fuzz/corpus/${{ matrix.target }}/
+          key: ${{ runner.os }}-fuzz-${{ matrix.target }}-${{ hashFiles('fuzz/Cargo.toml', '**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-fuzz-${{ matrix.target }}-
 
-      # Duration: 120s on PR/push smoke runs, 600s on the weekly cron, or the
-      # workflow_dispatch input when triggered manually.
-      - name: Determine fuzz duration
-        id: dur
+      - name: Seed the corpus
         shell: bash
         run: |
-          if [ "${{ github.event_name }}" = "schedule" ]; then
-            echo "seconds=600" >> "$GITHUB_OUTPUT"
-          elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "seconds=${{ github.event.inputs.max_total_time }}" >> "$GITHUB_OUTPUT"
-          else
-            echo "seconds=120" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Seed the corpora
-        shell: bash
-        run: |
+          set -euo pipefail
           # Each target gets a seed of the matching input type: the PIR decoder
           # mutates a valid encoded envelope; the RON loader mutates valid source.
-          mkdir -p fuzz/corpus/decode_pir fuzz/corpus/decode_ron
-          cp -n fuzz/seeds/valid_envelope.bin fuzz/corpus/decode_pir/ 2>/dev/null || true
-          cp -n fuzz/seeds/valid.ron fuzz/corpus/decode_ron/ 2>/dev/null || true
+          # -n: never overwrite a corpus entry restored from cache.
+          mkdir -p "fuzz/corpus/${{ matrix.target }}"
+          case "${{ matrix.target }}" in
+            decode_pir) cp -n fuzz/seeds/valid_envelope.bin "fuzz/corpus/decode_pir/" 2>/dev/null || true ;;
+            decode_ron) cp -n fuzz/seeds/valid.ron          "fuzz/corpus/decode_ron/" 2>/dev/null || true ;;
+          esac
 
-      # Split the time budget across the two targets so a PR smoke run still
-      # exercises both. --target gnu avoids cargo-fuzz's musl default (static
-      # libc is incompatible with the sanitizer).
-      - name: Run fuzz target — decode_pir
+      # Run the target for the full per-target budget. --target gnu avoids
+      # cargo-fuzz's musl default (static libc is incompatible with the
+      # sanitizer). A crash writes a reproducer under fuzz/artifacts/<target>/
+      # and makes this step (and job) fail.
+      - name: Run fuzz target — ${{ matrix.target }}
         run: |
-          cargo fuzz run decode_pir --target x86_64-unknown-linux-gnu -- \
-            -max_total_time=${{ steps.dur.outputs.seconds }} \
-            -rss_limit_mb=2048
+          cargo fuzz run "${{ matrix.target }}" --target x86_64-unknown-linux-gnu -- \
+            -max_total_time=${{ needs.plan.outputs.seconds }} \
+            -rss_limit_mb=${{ needs.plan.outputs.rss }} \
+            -print_final_stats=1
 
-      - name: Run fuzz target — decode_ron
+      # On a clean run, minimize the corpus so the cached/exported corpus stays
+      # small while preserving coverage. Best-effort: never fail the job here.
+      - name: Minimize corpus (clean runs only)
+        if: success()
         run: |
-          cargo fuzz run decode_ron --target x86_64-unknown-linux-gnu -- \
-            -max_total_time=${{ steps.dur.outputs.seconds }} \
-            -rss_limit_mb=2048
+          cargo fuzz cmin "${{ matrix.target }}" --target x86_64-unknown-linux-gnu || true
+
+      # Always export the evolved corpus so a maintainer can inspect / commit
+      # high-value inputs and so coverage is visible even on green runs.
+      - name: Upload evolved corpus
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzz-corpus-${{ matrix.target }}
+          path: fuzz/corpus/${{ matrix.target }}/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      # On a crash, surface the reproducer so it can be committed deterministically:
+      # upload the raw file AND print it base64-encoded in the log (no runner
+      # access needed to retrieve it). The committed location and regression-test
+      # location are spelled out for the follow-up PR.
+      - name: Surface crash reproducers (on failure)
+        if: failure()
+        shell: bash
+        run: |
+          set -uo pipefail
+          dir="fuzz/artifacts/${{ matrix.target }}"
+          if [ ! -d "$dir" ] || [ -z "$(ls -A "$dir" 2>/dev/null)" ]; then
+            echo "No reproducer files under $dir (failure may be a build/timeout, not a crash)."
+            exit 0
+          fi
+          echo "::warning::Crash reproducer(s) found for ${{ matrix.target }}. Commit them under $dir and add a regression test."
+          for f in "$dir"/*; do
+            [ -f "$f" ] || continue
+            echo "===== BEGIN REPRODUCER $f ====="
+            echo "sha256: $(sha256sum "$f" | cut -d' ' -f1)"
+            echo "size:   $(wc -c < "$f") bytes"
+            echo "--- base64 (decode with: base64 -d > $f) ---"
+            base64 "$f"
+            echo "===== END REPRODUCER $f ====="
+          done
+          echo "To record as a regression (no code edit required):"
+          echo "  1. git add $dir/<file>"
+          echo "  2. crates/hpdl-compiler/tests/fuzz_regressions.rs auto-replays every"
+          echo "     file under fuzz/artifacts/<target>/ through the real decoder under"
+          echo "     'cargo test --workspace'; committing the reproducer is enough to enforce it."
 
       - name: Upload crash artifacts (on failure)
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: fuzz-artifacts
-          path: fuzz/artifacts/
+          name: fuzz-artifacts-${{ matrix.target }}
+          path: fuzz/artifacts/${{ matrix.target }}/
           if-no-files-found: ignore
+          retention-days: 90
