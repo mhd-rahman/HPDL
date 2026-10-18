@@ -163,6 +163,13 @@ Ratifies the native `.hpdl` grammar at **full parity** with the RON frontend
   `StatusDeclaration`, `ActionDeclaration`, `MigrationDeclaration`, `CelestialBody`,
   `PlanetDefinition`, `Error`). 46 unit/integration tests + 9 doctests. Golden fixture
   roundtrip validation. Zero floats, no Earth defaults, strict lints enforced.
+- **Release & support policy** (`docs/RELEASE_POLICY.md`, ratified in **ADR 0013**)
+  — supported version windows for crate APIs and PIR format versions, the PIR
+  format-version deprecation policy (minor = additive/read-forever, major =
+  breaking + ADR + reviewed golden vectors + read-only window for the prior major),
+  and a pointer to the CVE/disclosure process in `SECURITY.md`. `SECURITY.md` now
+  links to the policy. Windows are release-relative and take effect at 1.0; pre-1.0
+  remains `main`-only. Governance-only: no code, crate-version, or PIR-byte change.
 
 ---
 

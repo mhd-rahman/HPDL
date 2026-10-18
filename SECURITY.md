@@ -8,6 +8,11 @@
 
 Only the latest commit on `main` receives security fixes during pre-1.0 development.
 
+The full release and support policy — supported version windows for crate APIs and
+PIR format versions, and the PIR format-version deprecation policy that takes effect
+at 1.0 — lives in [`docs/RELEASE_POLICY.md`](docs/RELEASE_POLICY.md). This file
+remains the source of truth for the disclosure process below.
+
 ## Reporting a Vulnerability
 
 **Do not open a public GitHub issue for security vulnerabilities.**

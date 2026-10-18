@@ -67,3 +67,4 @@ What tests need to be added, changed, or removed as a result?
 | [0010](0010-native-hpdl-grammar-v1.md) | Native HPDL Grammar v1.0 (ratification) | Accepted |
 | [0011](0011-module-registry.md) | Compile-time Module Registry (existence, kind, integrity) | Accepted |
 | [0012](0012-coverage-gating.md) | Code-coverage gating (ratchet floors, region metric) | Accepted |
+| [0013](0013-release-support-policy.md) | Release & Support Policy | Accepted |
