@@ -74,6 +74,7 @@ mod lockfile;
 mod lower;
 mod manifest;
 mod options;
+mod registry;
 mod resolve;
 mod result;
 
@@ -83,15 +84,17 @@ use thiserror::Error;
 pub use lockfile::{LockedPackage, Lockfile, LOCK_FORMAT_VERSION};
 pub use manifest::BuildManifest;
 pub use options::{CompileOptions, ResourceLimits};
+pub use registry::ModuleRegistry;
 pub use resolve::{
     verify_integrity, BuildLock, LockedModule, PackageResolver, ResolvedModule, ResolvedModules,
     ResolvedPackage,
 };
 pub use result::CompileResult;
 
-// Re-export the model package declaration types so the CLI / downstream can
-// construct package graphs without a direct `hpdl-model` dependency.
-pub use hpdl_model::{PackageId, PackageManifest};
+// Re-export the model package + registry declaration types so the CLI / downstream
+// can construct package graphs and module registries without a direct
+// `hpdl-model` dependency.
+pub use hpdl_model::{Digest, ModuleKind, PackageId, PackageManifest, RegisteredModule};
 
 // Re-export the contract types callers need so downstream crates (e.g.
 // `hpdl-cli`) can consume compiler output without depending on `hpdl-pir`
@@ -328,11 +331,19 @@ impl Compiler {
     }
 
     /// Run the shared semantic validator exactly once.
+    ///
+    /// When a module registry is configured (ADR 0011), it is attached to the
+    /// validator so declared module references are resolved against registered
+    /// implementations (existence, kind, integrity). Otherwise references are
+    /// flagged non-executable, as before the registry existed.
     fn validate(
         &self,
         definition: hpdl_model::PlanetDefinition,
     ) -> Result<hpdl_sema::ValidatedDefinition, Error> {
-        let validator = Validator::new(self.validator_config());
+        let mut validator = Validator::new(self.validator_config());
+        if let Some(registry) = self.options.registry.clone() {
+            validator = validator.with_resolver(Box::new(registry));
+        }
         validator.validate(definition).map_err(Error::Validation)
     }
 

@@ -1,7 +1,9 @@
 //! Status declaration and threshold validation (Amendment A1).
 
+use crate::module_validator::resolver_error_note;
+use crate::resolver::ModuleResolver;
 use crate::{Diagnostic, DiagnosticCode};
-use hpdl_model::PlanetDefinition;
+use hpdl_model::{ModuleKind, PlanetDefinition};
 use std::collections::BTreeMap;
 
 /// Validator for status declarations and thresholds.
@@ -139,7 +141,11 @@ impl StatusValidator {
     ///
     /// The model constructors already enforce cut-point and window ranges, so the
     /// numeric checks here are defence in depth and never panic.
-    pub fn validate_status_vitality(&self, definition: &PlanetDefinition) -> Vec<Diagnostic> {
+    pub fn validate_status_vitality(
+        &self,
+        definition: &PlanetDefinition,
+        resolver: Option<&dyn ModuleResolver>,
+    ) -> Vec<Diagnostic> {
         let mut diagnostics = Vec::new();
         let body = definition.body();
 
@@ -177,24 +183,71 @@ impl StatusValidator {
                     );
                 }
 
-                // Unsupported evaluator: no registry exists yet (OD-09.5), so a
-                // declared evaluator is accepted as a declaration but flagged as
-                // non-executable — never silently treated as runnable.
+                // Resolve the evaluator against the registry (ADR 0011). With no
+                // resolver, it is flagged non-executable (legacy behavior, error);
+                // with a resolver, an unresolved/wrong-kind/mismatched evaluator is
+                // an error, a resolved one is clean.
                 if let Some(evaluator) = status.evaluator() {
+                    match resolver {
+                        None => {
+                            diagnostics.push(
+                                Diagnostic::error(
+                                    DiagnosticCode::UnsupportedEvaluator,
+                                    format!(
+                                        "status '{}' references evaluator {:?} v{:?}, which has no registered implementation",
+                                        status.name(),
+                                        evaluator.module().name(),
+                                        evaluator.module().version()
+                                    ),
+                                )
+                                .with_note(
+                                    "evaluators are accepted as declarations but are not run by HPDL"
+                                        .to_string(),
+                                ),
+                            );
+                        }
+                        Some(r) => {
+                            if let Err(err) = r.resolve_module(
+                                evaluator.module().name(),
+                                evaluator.module().version(),
+                                ModuleKind::Evaluator,
+                                None,
+                            ) {
+                                diagnostics.push(
+                                    Diagnostic::error(
+                                        DiagnosticCode::UnsupportedEvaluator,
+                                        format!(
+                                            "status '{}' evaluator {:?} v{:?} could not be resolved to a registered implementation",
+                                            status.name(),
+                                            evaluator.module().name(),
+                                            evaluator.module().version()
+                                        ),
+                                    )
+                                    .with_note(resolver_error_note(&err)),
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Resolve a declared baseline artifact by its content digest (E9203).
+            // Independent of the evaluator: a baseline may be declared alone. With
+            // no resolver the baseline is not flagged (legacy behavior unchanged —
+            // baselines were previously only shape-checked); with a resolver, an
+            // unregistered baseline digest is an error.
+            if let (Some(r), Some(baseline)) = (resolver, status.baseline()) {
+                if let Err(err) = r.resolve_baseline(baseline.digest().as_str()) {
                     diagnostics.push(
                         Diagnostic::error(
-                            DiagnosticCode::UnsupportedEvaluator,
+                            DiagnosticCode::UnsupportedBaseline,
                             format!(
-                                "status '{}' references evaluator {:?} v{:?}, which has no registered implementation",
+                                "status '{}' baseline '{}' could not be resolved to registered content",
                                 status.name(),
-                                evaluator.module().name(),
-                                evaluator.module().version()
+                                baseline.name()
                             ),
                         )
-                        .with_note(
-                            "evaluators are accepted as declarations but are not run by HPDL"
-                                .to_string(),
-                        ),
+                        .with_note(resolver_error_note(&err)),
                     );
                 }
             }
@@ -500,7 +553,7 @@ mod tests {
         )
         .unwrap();
         let definition = PlanetDefinition::new("1.0", body).unwrap();
-        let diagnostics = validator.validate_status_vitality(&definition);
+        let diagnostics = validator.validate_status_vitality(&definition, None);
 
         // Complete declaration: only the unsupported-evaluator flag (no registry yet).
         assert!(diagnostics
@@ -533,7 +586,7 @@ mod tests {
         )
         .unwrap();
         let definition = PlanetDefinition::new("1.0", body).unwrap();
-        let diagnostics = validator.validate_status_vitality(&definition);
+        let diagnostics = validator.validate_status_vitality(&definition, None);
 
         // Missing window AND missing cut points → two incompleteness diagnostics.
         let incomplete = diagnostics
@@ -563,7 +616,9 @@ mod tests {
         )
         .unwrap();
         let definition = PlanetDefinition::new("1.0", body).unwrap();
-        assert!(validator.validate_status_vitality(&definition).is_empty());
+        assert!(validator
+            .validate_status_vitality(&definition, None)
+            .is_empty());
     }
 
     #[test]

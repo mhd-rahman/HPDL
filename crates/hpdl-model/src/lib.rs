@@ -69,6 +69,7 @@ mod orbital;
 mod package;
 mod physical_properties;
 mod planet_definition;
+mod registry;
 mod status_declaration;
 mod status_vitality;
 mod trait_set;
@@ -92,6 +93,7 @@ pub use orbital::{
 pub use package::{PackageId, PackageManifest, MAX_PACKAGE_DEPS};
 pub use physical_properties::PhysicalProperties;
 pub use planet_definition::PlanetDefinition;
+pub use registry::{ModuleKind, RegisteredModule};
 pub use status_declaration::StatusDeclaration;
 pub use status_vitality::{
     BaselineRef, CutPoints, EvaluationWindow, EvaluatorRef, StatusDimension,

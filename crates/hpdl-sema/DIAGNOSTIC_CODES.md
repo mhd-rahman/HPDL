@@ -62,7 +62,8 @@ deterministically (by span, then code, then message) before being returned.
 | E6002 | `ConflictingModuleVersions` | A module is referenced more than once / with conflicting versions. Also raised when a world-law module is referenced by two laws within one body. |
 | E6003 | `MultipleWorldLawsForDomain` | More than one *authoritative* (replacement) world law claims the same exclusive domain. Composition is intersection, never last-write-wins — the conflict is reported, not silently resolved. |
 | E6004 | `MissingMagicBridge` | A magic law reaches a physical (`physics.*`) domain with no declared `MagicBridge`. Magic affects physical state only through a declared bridge. |
-| E6005 | `UnsupportedWorldLaw` | A declared world-law / magic module has no registered implementation. **Warning**, not error: the law is accepted as a declaration but never simulated (the module registry is deferred to feature 14). Mirrors E8004 / E9103 / E9202. |
+| E6005 | `UnsupportedWorldLaw` | A declared world-law / magic module is not backed by a registered implementation. **With no module registry supplied** (the default) it is a **warning**: the law is accepted as a declaration but never simulated. **With a registry** (ADR 0011) it is resolved as a `world-law` kind; an unresolved / wrong-kind / digest-mismatched law is an **error**, a resolved one is clean. |
+| E6006 | `UnsupportedMagicBridge` | A declared magic-bridge module is not backed by a registered implementation. Same severity rule as E6005 (warning with no registry, error on failed resolution); resolved as a `magic-bridge` kind. |
 
 ## E7000 — Security and limits
 
@@ -87,7 +88,7 @@ deterministically (by span, then code, then message) before being returned.
 |---|---|---|
 | E9101 | `CompositionOutOfBounds` | A gas composition has a component over 100% or a sum outside the declared normalization tolerance. |
 | E9102 | `InvalidEnvironmentValue` | An environment numeric value is invalid: zero atmosphere pressure, inverted temperature ordering, or surface coverage over 100%. |
-| E9103 | `UnsupportedEnvironmentModule` | An environment references a module (e.g. a climate model) with no registered implementation. Accepted as a declaration, never simulated. |
+| E9103 | `UnsupportedEnvironmentModule` | An environment references a module (e.g. a climate model) not backed by a registered implementation. Always an **error**. With a registry (ADR 0011) it is resolved as a `climate-model` kind; without one it is flagged non-executable as before. |
 | E9104 | `MissingAssetDigest` | An asset reference has a missing or malformed content digest (must be 64 lowercase hex chars). |
 
 ## E9200 — Status / vitality (feature 09)
@@ -95,7 +96,8 @@ deterministically (by span, then code, then message) before being returned.
 | Code | Name | Meaning |
 |---|---|---|
 | E9201 | `IncompleteEvaluatorDeclaration` | A status declares an evaluator but is missing a window and/or cut points — it cannot produce a banded result. |
-| E9202 | `UnsupportedEvaluator` | A status references an evaluator with no registered implementation. Accepted as a declaration, never run. |
+| E9202 | `UnsupportedEvaluator` | A status references an evaluator not backed by a registered implementation. Always an **error**. With a registry (ADR 0011) it is resolved as an `evaluator` kind; without one it is flagged non-executable as before. |
+| E9203 | `UnsupportedBaseline` | A status references a content-addressed baseline whose digest is not registered. Emitted **only when a registry is supplied** (ADR 0011); without a registry a baseline is shape-checked only, as before. |
 
 Status-dimension and cut-point rules also reuse the E4000 status block (e.g.
 `UnsortedThresholds`, `ThresholdOutOfRange`, `FirstThresholdMismatch`, `InvalidScaleBounds`)
