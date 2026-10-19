@@ -24,6 +24,13 @@ thiserror = "2"
 # No optional features at skeleton stage.
 
 [dev-dependencies]
+# SPIKE ONLY (not a shipped dependency): evaluate whether wincode 0.6.3 — a
+# bincode-wire-compatible serializer from Anza — produces byte-identical output
+# to bincode 1.3.3's default config for the shapes PIR encodes. Used only by
+# tests/wincode_parity.rs. If parity holds, a real swap can be scoped under a
+# maintenance ADR with the frozen golden vectors unchanged; if not, it is a PIR
+# v3.0 format decision. Keep this out of [dependencies] until that is proven.
+wincode = { version = "0.6.3", features = ["derive"] }
 
 [[bench]]
 name = "encode_bench"

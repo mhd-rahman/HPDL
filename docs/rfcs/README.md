@@ -68,3 +68,5 @@ What tests need to be added, changed, or removed as a result?
 | [0011](0011-module-registry.md) | Compile-time Module Registry (existence, kind, integrity) | Accepted |
 | [0012](0012-coverage-gating.md) | Code-coverage gating (ratchet floors, region metric) | Accepted |
 | [0013](0013-release-support-policy.md) | Release & Support Policy | Accepted |
+| [0014](0014-pir-v2-ratified.md) | PIR Format v2.0 Ratified (locked / released) | Accepted |
+| [0015](0015-migrate-bincode-to-wincode.md) | Migrate PIR Serialization from bincode to wincode | Proposed |
