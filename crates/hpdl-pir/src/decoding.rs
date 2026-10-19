@@ -1,6 +1,6 @@
 //! Canonical decoding for planet definitions.
 
-use crate::encoding::MAX_PIR_SIZE;
+use crate::encoding::{CANONICAL_CONFIG, MAX_PIR_SIZE};
 use crate::envelope::PirEnvelope;
 use crate::error::Error;
 use crate::version::PirVersion;
@@ -46,11 +46,14 @@ pub fn decode_planet_definition(encoded: &[u8]) -> Result<PlanetDefinition, Erro
         });
     }
 
-    // Deserialize the envelope with wincode (bincode-wire-compatible).
-    let envelope: PirEnvelope =
-        wincode::deserialize(encoded).map_err(|e| Error::MalformedData {
+    // Deserialize the envelope with the canonical wincode config (default wire
+    // format; preallocation limit raised to MAX_PIR_SIZE so decode accepts the
+    // same size range it did pre-migration — see CANONICAL_CONFIG).
+    let envelope: PirEnvelope = wincode::config::deserialize(encoded, CANONICAL_CONFIG).map_err(
+        |e| Error::MalformedData {
             reason: format!("failed to deserialize envelope: {}", e),
-        })?;
+        },
+    )?;
 
     // Verify content hash
     if !envelope.verify_hash() {
@@ -75,9 +78,9 @@ pub fn decode_planet_definition(encoded: &[u8]) -> Result<PlanetDefinition, Erro
         });
     }
 
-    // Deserialize the planet definition from the payload with wincode.
-    let planet: PlanetDefinition =
-        wincode::deserialize(&envelope.payload).map_err(|e| Error::MalformedData {
+    // Deserialize the planet definition from the payload with the canonical config.
+    let planet: PlanetDefinition = wincode::config::deserialize(&envelope.payload, CANONICAL_CONFIG)
+        .map_err(|e| Error::MalformedData {
             reason: format!("failed to deserialize planet definition: {}", e),
         })?;
 
@@ -173,6 +176,34 @@ mod tests {
         let envelope_bytes = wincode::serialize(&envelope).unwrap();
         let result = decode_planet_definition(&envelope_bytes);
         assert!(matches!(result, Err(Error::IncompatibleVersion { .. })));
+    }
+
+    /// An envelope that is itself well-formed — valid content hash, compatible
+    /// version, payload under the size cap — but whose `payload` bytes are not a
+    /// valid `PlanetDefinition` must fail at the **payload** deserialize step with
+    /// `MalformedData`. This exercises the second (inner) decode path, distinct
+    /// from `test_decode_rejects_malformed_data` which fails at the outer envelope
+    /// deserialize. Building via `PirEnvelope::new` gives a matching hash so the
+    /// hash and version gates pass and decode reaches the payload decode.
+    #[allow(clippy::unwrap_used)]
+    #[test]
+    fn test_decode_rejects_invalid_payload() {
+        // Not a valid encoded PlanetDefinition, but short enough to pass the size
+        // caps and hashed consistently so the content-hash check passes.
+        let envelope = PirEnvelope::new(PirVersion::CURRENT, vec![0xFF, 0x00, 0x13, 0x37]);
+        assert!(envelope.verify_hash());
+
+        let bytes = wincode::serialize(&envelope).unwrap();
+        let result = decode_planet_definition(&bytes);
+        match result {
+            Err(Error::MalformedData { reason }) => {
+                assert!(
+                    reason.contains("planet definition"),
+                    "expected the payload-decode reason, got: {reason}"
+                );
+            }
+            other => panic!("expected MalformedData from an invalid payload, got {other:?}"),
+        }
     }
 
     /// Byte offset of the envelope's `payload` length prefix under the canonical
