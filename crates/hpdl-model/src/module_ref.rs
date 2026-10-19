@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use wincode::{SchemaRead, SchemaWrite};
 
 use crate::Error;
 
@@ -20,7 +21,7 @@ const MAX_VERSION_LEN: usize = 64;
 /// assert_eq!(r.name(), "hpdl.atmosphere");
 /// assert_eq!(r.version(), "1.2.0");
 /// ```
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, SchemaWrite, SchemaRead)]
 pub struct ModuleRef {
     name: String,
     version: String,

@@ -11,6 +11,7 @@
 use std::collections::BTreeSet;
 
 use serde::{Deserialize, Serialize};
+use wincode::{SchemaRead, SchemaWrite};
 
 use crate::{Digest, Error};
 
@@ -40,7 +41,10 @@ pub const MAX_PACKAGE_DEPS: usize = 1024;
 /// assert!(PackageId::new("hpdl.atmosphere", "^1.2").is_err());
 /// assert!(PackageId::new("hpdl.atmosphere", "").is_err());
 /// ```
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(
+    Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, SchemaWrite,
+    SchemaRead,
+)]
 pub struct PackageId {
     name: String,
     version: String,
@@ -115,7 +119,7 @@ impl PackageId {
 /// ).unwrap();
 /// assert_eq!(m.dependencies().count(), 1);
 /// ```
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, SchemaWrite, SchemaRead)]
 pub struct PackageManifest {
     id: PackageId,
     content_digest: Digest,

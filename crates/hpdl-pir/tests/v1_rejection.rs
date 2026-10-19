@@ -13,6 +13,11 @@ use hpdl_pir::{
     decode_planet_definition, encode_planet_definition, Error, PirEnvelope, PirVersion,
 };
 
+// The envelope is serialized with wincode — the same serializer the decoder now
+// uses (ADR 0015). The v1-rejection contract is serializer-independent: a v1
+// version stamp is rejected regardless of which wire-compatible encoder produced
+// the bytes.
+
 /// Build a v2 planet payload we can reuse: the canonical payload bytes of a
 /// minimal definition, extracted from a real v2 envelope.
 #[allow(clippy::unwrap_used)]
@@ -51,7 +56,7 @@ fn v2_decoder_rejects_v1_envelope_with_valid_hash() {
          the decode fails on the version gate, not the hash check"
     );
 
-    let bytes = bincode::serialize(&envelope).unwrap();
+    let bytes = wincode::serialize(&envelope).unwrap();
     let result = decode_planet_definition(&bytes);
 
     match result {
@@ -81,7 +86,7 @@ fn v2_decoder_rejects_v1_stamp_even_with_v2_shaped_payload() {
     let forged = PirEnvelope::new(PirVersion::new(1, 0), payload);
     assert!(forged.verify_hash());
 
-    let bytes = bincode::serialize(&forged).unwrap();
+    let bytes = wincode::serialize(&forged).unwrap();
     let result = decode_planet_definition(&bytes);
 
     assert!(
@@ -113,7 +118,7 @@ fn v2_decoder_accepts_current_v2_artifact() {
     assert_eq!(envelope.version, PirVersion::CURRENT);
     assert_eq!(envelope.version, PirVersion::new(2, 0));
 
-    let bytes = bincode::serialize(&envelope).unwrap();
+    let bytes = wincode::serialize(&envelope).unwrap();
     let decoded = decode_planet_definition(&bytes).unwrap();
     assert_eq!(decoded.body().id(), planet.body().id());
 }

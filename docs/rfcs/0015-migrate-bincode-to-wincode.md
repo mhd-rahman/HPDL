@@ -1,19 +1,36 @@
 # ADR 0015: Migrate PIR Serialization from bincode to wincode
 
-**Status:** Proposed
-**Date:** 2026-10-19
+**Status:** Accepted
+**Date:** 2026-10-19 (Proposed) · 2026-10-19 (Accepted)
 **Author:** HPDL Team
 **Feature:** `00-workspace-foundation` (dependency maintenance)
 **Builds on:** ADR 0003 (PIR v2.0), ADR 0013 (release & support policy), ADR 0014 (PIR v2.0 ratified / locked)
 
 ## Status note
 
-This ADR is **Proposed**, not Accepted. It records the decision to pursue the
-migration and the gate that must be met before it can ship. The dependency swap
-is **not** done yet: this branch adds only a **byte-parity spike** (wincode as a
-`dev-dependency` plus `crates/hpdl-pir/tests/wincode_parity.rs`). The shipped
-`hpdl-pir` crate still serializes with **bincode 1.3.3**. The ADR moves to
-Accepted only when the acceptance gate below is met in a follow-up change.
+**Accepted — the migration has shipped and the acceptance gate was met.** The
+canonical serializer in `hpdl-pir` is now wincode 0.6.3; bincode is no longer a
+shipped dependency (retained only as a `dev-dependency` for the parity regression
+test). The byte-neutrality gate below was verified green:
+
+- `hpdl-pir` frozen digests unchanged: `minimal = 608a90a7…`, `traits =
+  9bc40d4e…` (`golden_hash.rs`, `pir_vectors.json`).
+- `hpdl-compiler` golden manifest unchanged: `content_hash = 23d96f5d…`
+  (`golden_build_is_reproducible`), and the native-HPDL/RON frontends still emit
+  byte-identical PIR.
+- Decode-side allocation-bomb tests pass under wincode (fails closed on an
+  inflated length prefix); the fuzz-regression decode tests still reject
+  malformed PIR.
+- The byte-parity regression test (`tests/wincode_parity.rs`) covers fixed-width
+  integers (incl. `u128`/`i128`), strings/bytes, `Option` presence, `BTreeMap`/
+  `BTreeSet`, `Vec<(i64, String)>` tuples, and both fieldless and data-carrying
+  enum discriminants.
+
+Verification still owed to CI (not runnable in the authoring environment):
+`cargo fmt --all --check`, `cargo clippy --workspace --all-targets -- -D
+warnings`, `cargo deny check` (now that the RUSTSEC-2025-0141 ignore is removed
+and `darling`/`syn`/`wincode-derive` entered the build graph), and
+`cargo semver-checks -p hpdl-pir -p hpdl-runtime-api`.
 
 ## Summary
 
@@ -99,7 +116,9 @@ nested `hpdl-model` types; that is the acceptance gate.
    (ADR 0013 major-bump procedure: new major, migration path, re-blessed vectors,
    prior-major read-only window). A byte change is explicitly out of scope here.
 
-## Migration scope (follow-up work, not in this branch)
+## Migration scope (completed)
+
+All items below are **done** as of the Accepted status:
 
 1. **Derive `SchemaWrite`/`SchemaRead` on the PIR-reachable `hpdl-model` type
    graph** — ~35 serde-derived types across 16 files (`planet_definition`,

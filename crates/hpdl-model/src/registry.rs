@@ -13,6 +13,7 @@
 //! judgement (that is deferred — ADR 0008 OD-14.4).
 
 use serde::{Deserialize, Serialize};
+use wincode::{SchemaRead, SchemaWrite};
 
 use crate::{Digest, PackageId};
 
@@ -21,7 +22,10 @@ use crate::{Digest, PackageId};
 /// Each module reference site in the model requires a specific kind, so a
 /// resolver can reject a kind mismatch (e.g. a climate model used where an
 /// evaluator is required) as a typed error rather than silently accepting it.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, SchemaWrite,
+    SchemaRead,
+)]
 pub enum ModuleKind {
     /// A versioned evaluator that derives a status (`EvaluatorRef`).
     Evaluator,
@@ -75,7 +79,7 @@ impl ModuleKind {
 /// assert_eq!(m.kind(), ModuleKind::Evaluator);
 /// assert_eq!(m.id().name(), "hpdl.vitality.eco");
 /// ```
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, SchemaWrite, SchemaRead)]
 pub struct RegisteredModule {
     id: PackageId,
     kind: ModuleKind,

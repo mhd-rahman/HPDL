@@ -1,7 +1,7 @@
 //! Dependency-free canonical-encode + hash benchmark for `hpdl-pir`.
 //!
 //! `harness = false`: uses `std::time::Instant`, no external crates. This is the
-//! determinism-critical path (bincode encode + domain-separated SHA-256), so a
+//! determinism-critical path (wincode encode + domain-separated SHA-256), so a
 //! regression here matters most.
 //!
 //! Run with: `cargo bench -p hpdl-pir`

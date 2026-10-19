@@ -8,6 +8,51 @@ for published crates (`hpdl-pir`, and others as they stabilize).
 
 ---
 
+## [Unreleased] — Canonical serializer migrated bincode → wincode (ADR 0015) (2026-10-19)
+
+### Changed — PIR serializer (byte-neutral; no format change)
+
+- **`hpdl-pir` now serializes/deserializes canonical PIR with
+  [`wincode`](https://crates.io/crates/wincode) `0.6.3`** (bincode-wire-compatible,
+  actively maintained by Anza) instead of the unmaintained `bincode` `1.3.3`
+  ([RUSTSEC-2025-0141](https://rustsec.org/advisories/RUSTSEC-2025-0141)). The swap
+  is **byte-neutral**: PIR format stays v2.0, domain separator stays `HPDL-PIR-v2`,
+  and every frozen golden digest is unchanged (`minimal = 608a90a7…`, `traits =
+  9bc40d4e…`, compiler `content_hash = 23d96f5d…`). Verified by the existing golden
+  vectors passing without regeneration.
+- **`hpdl-model` domain types now derive `wincode::{SchemaWrite, SchemaRead}`**
+  alongside their serde derives (~35 types). `#[wincode(skip)]` mirrors the
+  existing `#[serde(skip)]` on `CelestialBody::world_laws`, so skipped fields stay
+  out of the byte stream exactly as before. Build-time proc-macro closure only
+  (`wincode-derive`, `darling`, `syn`); no runtime/ABI surface added.
+- **`PirEnvelope`, `PirVersion`, `CanonicalHash`** gained wincode derives; the
+  envelope `payload: Vec<u8>` is encoded with a `u64` length prefix + raw bytes
+  under wincode's default config, matching the previous `serde_bytes`
+  representation byte-for-byte (`serde_bytes` dependency dropped).
+
+### Removed
+
+- **`deny.toml` no longer ignores `RUSTSEC-2025-0141`.** bincode is no longer a
+  shipped dependency; it is retained only as a `dev-dependency` of `hpdl-pir` for
+  the wincode/bincode byte-parity regression test (`tests/wincode_parity.rs`).
+
+### Tests
+
+- `tests/wincode_parity.rs` asserts wincode and bincode emit identical bytes for
+  every shape PIR encodes: fixed-width integers (incl. `u128`/`i128`), strings and
+  byte vectors, `Option` presence, `BTreeMap`/`BTreeSet`, `Vec<(i64, String)>`
+  tuples, and fieldless + data-carrying enum discriminants.
+- Decode-side allocation-bomb and fuzz-regression decode tests pass under wincode
+  (fail closed on inflated length prefixes and malformed input).
+
+### Notes
+
+- Recorded in `docs/rfcs/0015-migrate-bincode-to-wincode.md` (Accepted). CI still
+  owes `cargo deny check` (new proc-macro closure), `cargo semver-checks`, clippy,
+  and fmt gates; these were not runnable in the authoring environment.
+
+---
+
 ## [Unreleased] — PIR format v2.0 ratified / locked (ADR 0014) (2026-10-19)
 
 ### Changed — PIR format status (no bytes, no code, no crate-version change)

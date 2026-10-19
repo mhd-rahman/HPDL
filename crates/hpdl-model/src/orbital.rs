@@ -16,6 +16,7 @@
 //!   [`Error`], never panics.
 
 use serde::{Deserialize, Serialize};
+use wincode::{SchemaRead, SchemaWrite};
 
 use crate::{BodyId, Error};
 
@@ -68,7 +69,7 @@ fn validate_frame_name(name: &str) -> Result<(), Error> {
 ///
 /// assert!(ReferenceFrame::custom("bad frame!").is_err());
 /// ```
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, SchemaWrite, SchemaRead)]
 pub enum ReferenceFrame {
     /// Earth mean equator and equinox of J2000.0.
     EquatorialJ2000,
@@ -118,7 +119,7 @@ impl ReferenceFrame {
 ///
 /// assert!(CelestialIdentity::other("").is_err());
 /// ```
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, SchemaWrite, SchemaRead)]
 pub enum CelestialIdentity {
     /// A star.
     Star,
@@ -168,7 +169,7 @@ impl CelestialIdentity {
 /// );
 /// assert_eq!(parent.target().as_str(), "sol");
 /// ```
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, SchemaWrite, SchemaRead)]
 pub struct ParentRef {
     target: BodyId,
     frame: ReferenceFrame,
@@ -227,7 +228,7 @@ impl ParentRef {
 ///     1, 1_000_000, 0, 0, 0, 0, ReferenceFrame::EclipticJ2000,
 /// ).is_err());
 /// ```
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, SchemaWrite, SchemaRead)]
 pub struct KeplerianElements {
     semi_major_axis_m: u128,
     eccentricity_micro: u32,
@@ -348,7 +349,7 @@ impl KeplerianElements {
 /// // A zero period is rejected.
 /// assert!(RotationModel::new(0, 0, ReferenceFrame::EclipticJ2000).is_err());
 /// ```
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, SchemaWrite, SchemaRead)]
 pub struct RotationModel {
     sidereal_period_s: i64,
     axial_tilt_mdeg: i32,

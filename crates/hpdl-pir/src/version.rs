@@ -1,12 +1,13 @@
 //! PIR format version tracking.
 
 use serde::{Deserialize, Serialize};
+use wincode::{SchemaRead, SchemaWrite};
 
 /// PIR format version identifier.
 ///
 /// Each version documents breaking changes to the binary format.
 /// Decoders MUST reject unknown versions to prevent silent misinterpretation.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, SchemaWrite, SchemaRead)]
 pub struct PirVersion {
     /// Major version (increments on breaking format changes).
     pub major: u16,
@@ -20,9 +21,9 @@ impl PirVersion {
     /// Bumped to 2.0 for feature 07 (celestial & orbital systems): the
     /// `CelestialBody` struct gained optional orbital declaration fields
     /// (`identity`, `parent`, `orbit`, `rotation`). Because the canonical
-    /// encoding is bincode — which is not self-describing and writes a presence
-    /// byte for every `Option`, including `None` — adding these fields is a
-    /// breaking change to the byte layout. Old (v1) bytes cannot be decoded by
+    /// encoding is not self-describing and writes a presence byte for every
+    /// `Option`, including `None` — adding these fields is a breaking change to
+    /// the byte layout. Old (v1) bytes cannot be decoded by
     /// the v2 struct and vice versa, so the major version increments. See
     /// `docs/rfcs/ADR-0003-pir-v2-orbital-fields.md`.
     pub const CURRENT: PirVersion = PirVersion { major: 2, minor: 0 };

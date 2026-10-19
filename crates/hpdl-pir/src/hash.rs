@@ -3,12 +3,13 @@
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::fmt;
+use wincode::{SchemaRead, SchemaWrite};
 
 /// A cryptographic hash of canonical PIR bytes.
 ///
 /// Uses SHA-256 with a domain separator to prevent cross-protocol attacks.
 /// The domain separator includes protocol ID and format version.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, SchemaWrite, SchemaRead)]
 pub struct CanonicalHash([u8; 32]);
 
 impl CanonicalHash {

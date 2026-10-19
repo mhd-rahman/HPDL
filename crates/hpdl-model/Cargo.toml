@@ -10,6 +10,11 @@ license = "MIT OR Apache-2.0"
 [dependencies]
 thiserror = "2"
 serde = { version = "1", features = ["derive"] }
+# wincode schema derives live on the domain types so hpdl-pir can encode them
+# with wincode (bincode-wire-compatible) instead of the unmaintained bincode
+# 1.3.3 (RUSTSEC-2025-0141). See docs/rfcs/0015-migrate-bincode-to-wincode.md.
+# Build-time proc-macro closure only; no runtime/ABI surface added to the model.
+wincode = { version = "0.6.3", features = ["derive"] }
 
 [features]
 # No optional features at skeleton stage.

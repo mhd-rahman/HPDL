@@ -33,7 +33,7 @@ use hpdl_model::PlanetDefinition;
 /// let original = PlanetDefinition::new("1.0", body).unwrap();
 ///
 /// let envelope = encode_planet_definition(&original).expect("encoding failed");
-/// let envelope_bytes = bincode::serialize(&envelope).expect("envelope serialization failed");
+/// let envelope_bytes = wincode::serialize(&envelope).expect("envelope serialization failed");
 /// let decoded = decode_planet_definition(&envelope_bytes).expect("decoding failed");
 /// assert_eq!(decoded.body().id(), original.body().id());
 /// ```
@@ -46,9 +46,9 @@ pub fn decode_planet_definition(encoded: &[u8]) -> Result<PlanetDefinition, Erro
         });
     }
 
-    // Deserialize the envelope
+    // Deserialize the envelope with wincode (bincode-wire-compatible).
     let envelope: PirEnvelope =
-        bincode::deserialize(encoded).map_err(|e| Error::MalformedData {
+        wincode::deserialize(encoded).map_err(|e| Error::MalformedData {
             reason: format!("failed to deserialize envelope: {}", e),
         })?;
 
@@ -75,9 +75,9 @@ pub fn decode_planet_definition(encoded: &[u8]) -> Result<PlanetDefinition, Erro
         });
     }
 
-    // Deserialize the planet definition from the payload
+    // Deserialize the planet definition from the payload with wincode.
     let planet: PlanetDefinition =
-        bincode::deserialize(&envelope.payload).map_err(|e| Error::MalformedData {
+        wincode::deserialize(&envelope.payload).map_err(|e| Error::MalformedData {
             reason: format!("failed to deserialize planet definition: {}", e),
         })?;
 
@@ -111,7 +111,7 @@ mod tests {
         let original = minimal_planet("test");
 
         let envelope = encode_planet_definition(&original).unwrap();
-        let envelope_bytes = bincode::serialize(&envelope).unwrap();
+        let envelope_bytes = wincode::serialize(&envelope).unwrap();
         let decoded = decode_planet_definition(&envelope_bytes).unwrap();
 
         assert_eq!(decoded.body().id(), original.body().id());
@@ -123,7 +123,7 @@ mod tests {
         let original = minimal_planet("roundtrip-test");
 
         let envelope = encode_planet_definition(&original).unwrap();
-        let envelope_bytes = bincode::serialize(&envelope).unwrap();
+        let envelope_bytes = wincode::serialize(&envelope).unwrap();
         let decoded = decode_planet_definition(&envelope_bytes).unwrap();
 
         assert_eq!(decoded, original);
@@ -140,7 +140,7 @@ mod tests {
     #[allow(clippy::unwrap_used)]
     #[test]
     fn test_decode_rejects_malformed_data() {
-        let garbage = b"not valid bincode data";
+        let garbage = b"not valid PIR data";
         let result = decode_planet_definition(garbage);
         assert!(matches!(result, Err(Error::MalformedData { .. })));
     }
@@ -156,7 +156,7 @@ mod tests {
             *byte = byte.wrapping_add(1);
         }
 
-        let envelope_bytes = bincode::serialize(&envelope).unwrap();
+        let envelope_bytes = wincode::serialize(&envelope).unwrap();
         let result = decode_planet_definition(&envelope_bytes);
         assert!(matches!(result, Err(Error::MalformedData { .. })));
     }
@@ -170,17 +170,18 @@ mod tests {
         // Change version to unsupported major version
         envelope.version = PirVersion::new(99, 0);
 
-        let envelope_bytes = bincode::serialize(&envelope).unwrap();
+        let envelope_bytes = wincode::serialize(&envelope).unwrap();
         let result = decode_planet_definition(&envelope_bytes);
         assert!(matches!(result, Err(Error::IncompatibleVersion { .. })));
     }
 
     /// Byte offset of the envelope's `payload` length prefix under the canonical
-    /// bincode encoding (fixint, little-endian):
+    /// canonical encoding (fixint, little-endian — identical under wincode and
+    /// bincode's default config):
     ///
     /// - `version: PirVersion { major: u16, minor: u16 }` → 4 bytes
     /// - `content_hash: CanonicalHash([u8; 32])` → 32 bytes, no length prefix
-    /// - `payload: Vec<u8>` (via `serde_bytes`) → `u64` length prefix (8 bytes) + data
+    /// - `payload: Vec<u8>` → `u64` length prefix (8 bytes) + data
     ///
     /// So the payload length prefix occupies bytes `[36, 44)`.
     const PAYLOAD_LEN_PREFIX_OFFSET: usize = 4 + 32;
@@ -190,19 +191,19 @@ mod tests {
     /// closed with `MalformedData` rather than attempting to reserve the declared
     /// capacity.
     ///
-    /// This pins the decoder's reliance on bincode 1.x's default behavior, which
-    /// reads length-delimited data incrementally instead of pre-allocating the
-    /// full declared length up front. The forged envelope stays well under
-    /// `MAX_PIR_SIZE`, so the outer size cap does not catch it — the bincode
-    /// decode itself must. A regression (e.g. a bincode config or crate change
-    /// that pre-reserves capacity) would turn this into an OOM / abort, which this
-    /// test exists to catch.
+    /// This pins the decoder's fail-closed behavior under wincode: wincode
+    /// refuses to allocate for a declared length it cannot satisfy from the
+    /// remaining input (it does not pre-reserve the full declared capacity). The
+    /// forged envelope stays well under `MAX_PIR_SIZE`, so the outer size cap does
+    /// not catch it — the wincode decode itself must. A regression (e.g. a
+    /// serializer config or crate change that pre-reserves capacity) would turn
+    /// this into an OOM / abort, which this test exists to catch.
     #[allow(clippy::unwrap_used, clippy::indexing_slicing)]
     #[test]
     fn test_decode_rejects_inflated_payload_length_prefix() {
         let original = minimal_planet("alloc-bomb");
         let envelope = encode_planet_definition(&original).unwrap();
-        let mut bytes = bincode::serialize(&envelope).unwrap();
+        let mut bytes = wincode::serialize(&envelope).unwrap();
 
         // Sanity: the stream is long enough to hold the prefix we are about to
         // overwrite, and the layout assumption holds.
@@ -228,7 +229,7 @@ mod tests {
     fn test_decode_rejects_moderately_inflated_payload_prefix() {
         let original = minimal_planet("alloc-bomb-2");
         let envelope = encode_planet_definition(&original).unwrap();
-        let mut bytes = bincode::serialize(&envelope).unwrap();
+        let mut bytes = wincode::serialize(&envelope).unwrap();
         assert!(bytes.len() > PAYLOAD_LEN_PREFIX_OFFSET + 8);
 
         let one_gib: u64 = 1024 * 1024 * 1024;

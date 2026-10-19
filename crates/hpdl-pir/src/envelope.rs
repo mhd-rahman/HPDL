@@ -3,12 +3,16 @@
 use crate::hash::CanonicalHash;
 use crate::version::PirVersion;
 use serde::{Deserialize, Serialize};
+use wincode::{SchemaRead, SchemaWrite};
 
 /// The outer envelope for canonical PIR data.
 ///
 /// Contains version metadata and the encoded definition payload.
 /// Separates format versioning from domain content.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+///
+/// Serialized with wincode (bincode-wire-compatible); the `serde` derives are
+/// retained for the parity regression test and any serde-based tooling.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, SchemaWrite, SchemaRead)]
 pub struct PirEnvelope {
     /// PIR format version.
     pub version: PirVersion,
@@ -22,7 +26,10 @@ pub struct PirEnvelope {
     /// The encoded planet definition payload.
     ///
     /// This is the canonical serialized form of `PlanetDefinition`.
-    #[serde(with = "serde_bytes")]
+    ///
+    /// `Vec<u8>` is encoded with a `u64` length prefix followed by the raw
+    /// bytes under both wincode and bincode's default config, matching the
+    /// previous `serde_bytes` representation byte-for-byte.
     pub payload: Vec<u8>,
 }
 

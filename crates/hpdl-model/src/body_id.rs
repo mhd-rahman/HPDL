@@ -1,6 +1,7 @@
 use std::fmt;
 
 use serde::{Deserialize, Serialize};
+use wincode::{SchemaRead, SchemaWrite};
 
 use crate::Error;
 
@@ -26,7 +27,7 @@ const MAX_LEN: usize = 128;
 /// assert!(BodyId::new("").is_err());
 /// assert!(BodyId::new("bad id!").is_err());
 /// ```
-#[derive(Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, SchemaWrite, SchemaRead)]
 pub struct BodyId(String);
 
 impl BodyId {

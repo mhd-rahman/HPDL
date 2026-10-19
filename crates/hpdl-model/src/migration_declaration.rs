@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use wincode::{SchemaRead, SchemaWrite};
 
 use crate::{status_declaration::validate_name, Error};
 
@@ -17,7 +18,7 @@ use crate::{status_declaration::validate_name, Error};
 /// assert_eq!(m.from_version(), 1);
 /// assert_eq!(m.to_version(), 2);
 /// ```
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, SchemaWrite, SchemaRead)]
 pub struct MigrationDeclaration {
     name: String,
     from_version: u32,

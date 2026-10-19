@@ -42,10 +42,12 @@ pub const MAX_PIR_SIZE: usize = 10 * 1024 * 1024;
 /// assert!(envelope.verify_hash());
 /// ```
 pub fn encode_planet_definition(planet: &PlanetDefinition) -> Result<PirEnvelope, Error> {
-    // Use bincode with default configuration for canonical encoding.
-    // bincode guarantees deterministic output with fixed endianness and no variable-length encoding tricks.
-    let payload = bincode::serialize(planet).map_err(|e| Error::EncodingFailed {
-        reason: format!("bincode serialization failed: {}", e),
+    // Use wincode's default configuration for canonical encoding. wincode is
+    // bincode-wire-compatible: fixed endianness, fixint lengths, no
+    // variable-length encoding tricks, so output is deterministic and
+    // byte-identical to the previous bincode encoding (ADR 0015).
+    let payload = wincode::serialize(planet).map_err(|e| Error::EncodingFailed {
+        reason: format!("wincode serialization failed: {}", e),
     })?;
 
     // Enforce size limit to prevent unbounded allocations

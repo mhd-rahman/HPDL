@@ -19,6 +19,7 @@
 use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
+use wincode::{SchemaRead, SchemaWrite};
 
 use crate::{Error, ModuleRef};
 
@@ -56,7 +57,10 @@ fn validate_env_name(name: &str) -> Result<(), Error> {
 /// assert_eq!(GasId::new("co2").unwrap().as_str(), "co2");
 /// assert!(GasId::new("bad gas!").is_err());
 /// ```
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(
+    Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, SchemaWrite,
+    SchemaRead,
+)]
 pub struct GasId(String);
 
 impl GasId {
@@ -89,7 +93,10 @@ impl GasId {
 /// assert!(Digest::new("tooshort").is_err());
 /// assert!(Digest::new("A".repeat(64)).is_err()); // uppercase rejected
 /// ```
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(
+    Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, SchemaWrite,
+    SchemaRead,
+)]
 pub struct Digest(String);
 
 impl Digest {
@@ -138,7 +145,7 @@ impl Digest {
 /// ).unwrap();
 /// assert_eq!(comp.component_ppm(&GasId::new("o2").unwrap()), Some(209_500));
 /// ```
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, SchemaWrite, SchemaRead)]
 pub struct Composition {
     components: BTreeMap<GasId, u32>,
     tolerance_ppm: u32,
@@ -229,7 +236,7 @@ impl Composition {
 /// let atm = AtmosphereProfile::new(610, comp, None).unwrap(); // ~Mars surface pressure
 /// assert_eq!(atm.surface_pressure_pa(), 610);
 /// ```
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, SchemaWrite, SchemaRead)]
 pub struct AtmosphereProfile {
     surface_pressure_pa: u64,
     composition: Composition,
@@ -288,7 +295,7 @@ impl AtmosphereProfile {
 ///
 /// assert!(ThermalProfile::new(100, 200, 300).is_err()); // mean < min
 /// ```
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, SchemaWrite, SchemaRead)]
 pub struct ThermalProfile {
     mean_mk: u64,
     min_mk: u64,
@@ -350,7 +357,7 @@ fn validate_coverage(ppm: u32) -> Result<(), Error> {
 /// let h = Hydrosphere::new(708_000, Some(GasId::new("h2o").unwrap())).unwrap();
 /// assert_eq!(h.surface_coverage_ppm(), 708_000);
 /// ```
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, SchemaWrite, SchemaRead)]
 pub struct Hydrosphere {
     surface_coverage_ppm: u32,
     dominant_liquid: Option<GasId>,
@@ -392,7 +399,7 @@ impl Hydrosphere {
 /// assert_eq!(c.surface_coverage_ppm(), 100_000);
 /// assert!(Cryosphere::new(1_000_001).is_err());
 /// ```
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, SchemaWrite, SchemaRead)]
 pub struct Cryosphere {
     surface_coverage_ppm: u32,
 }
@@ -417,7 +424,7 @@ impl Cryosphere {
 }
 
 /// The declared complexity tier of a present biosphere.
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, SchemaWrite, SchemaRead)]
 pub enum ComplexityTier {
     /// Microbial life only.
     Microbial,
@@ -458,7 +465,7 @@ impl ComplexityTier {
 /// assert_ne!(dead, living);
 /// assert_ne!(Biosphere::Absent, Biosphere::Unknown);
 /// ```
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, SchemaWrite, SchemaRead)]
 pub enum Biosphere {
     /// No native biosphere (not applicable).
     Absent,
@@ -469,7 +476,7 @@ pub enum Biosphere {
 }
 
 /// The kind of a referenced visual asset.
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, SchemaWrite, SchemaRead)]
 pub enum AssetKind {
     /// A surface texture.
     Texture,
@@ -510,7 +517,7 @@ impl AssetKind {
 /// ).unwrap();
 /// assert_eq!(asset.name(), "surface-albedo");
 /// ```
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, SchemaWrite, SchemaRead)]
 pub struct AssetRef {
     name: String,
     kind: AssetKind,
@@ -566,7 +573,7 @@ impl AssetRef {
 /// assert!(env.atmosphere().is_some());
 /// assert_eq!(env.biosphere(), &Biosphere::Unknown);
 /// ```
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, SchemaWrite, SchemaRead)]
 pub struct EnvironmentDefinition {
     #[serde(default)]
     atmosphere: Option<AtmosphereProfile>,

@@ -27,7 +27,7 @@ fn main() {
     .expect("valid body");
     let planet = PlanetDefinition::new("1.0", body).expect("valid definition");
     let envelope = encode_planet_definition(&planet).expect("encode");
-    let bytes = bincode::serialize(&envelope).expect("serialize envelope");
+    let bytes = wincode::serialize(&envelope).expect("serialize envelope");
     std::fs::write(&out_path, &bytes).expect("write seed bytes");
     eprintln!("wrote {} bytes to {out_path}", bytes.len());
 }

@@ -30,7 +30,7 @@
 //! assert!(envelope.verify_hash());
 //!
 //! // Serialize envelope for storage/transmission
-//! let bytes = bincode::serialize(&envelope).expect("envelope serialization failed");
+//! let bytes = wincode::serialize(&envelope).expect("envelope serialization failed");
 //!
 //! // Decode back
 //! let decoded = decode_planet_definition(&bytes).expect("decoding failed");

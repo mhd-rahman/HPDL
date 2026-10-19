@@ -19,6 +19,7 @@
 //! - **Out-of-range is rejected, never clamped** ([`CutPoints::classify`]).
 
 use serde::{Deserialize, Serialize};
+use wincode::{SchemaRead, SchemaWrite};
 
 use crate::{Digest, Error, ModuleRef};
 
@@ -53,7 +54,7 @@ fn validate_status_name(name: &str) -> Result<(), Error> {
 /// assert!(StatusDimension::custom("arcane.stability").is_ok());
 /// assert!(StatusDimension::custom("bad dim!").is_err());
 /// ```
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, SchemaWrite, SchemaRead)]
 pub enum StatusDimension {
     /// Physical state of the body.
     Physical,
@@ -90,7 +91,7 @@ impl StatusDimension {
 /// let ev = EvaluatorRef::new(ModuleRef::new("hpdl.vitality.physical", "1.0").unwrap());
 /// assert_eq!(ev.module().name(), "hpdl.vitality.physical");
 /// ```
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, SchemaWrite, SchemaRead)]
 pub struct EvaluatorRef {
     module: ModuleRef,
 }
@@ -121,7 +122,7 @@ impl EvaluatorRef {
 /// let b = BaselineRef::new("preindustrial", Digest::new("a".repeat(64)).unwrap()).unwrap();
 /// assert_eq!(b.name(), "preindustrial");
 /// ```
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, SchemaWrite, SchemaRead)]
 pub struct BaselineRef {
     name: String,
     digest: Digest,
@@ -190,7 +191,7 @@ fn validate_band_label(name: &str) -> Result<(), Error> {
 /// assert!(cp.classify(101).is_err());
 /// assert!(cp.classify(-1).is_err());
 /// ```
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, SchemaWrite, SchemaRead)]
 pub struct CutPoints {
     scale_min: i64,
     scale_max: i64,
@@ -310,7 +311,7 @@ impl CutPoints {
 /// assert_eq!(w.span(), 1000);
 /// assert!(EvaluationWindow::new(0, None).is_err());
 /// ```
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, SchemaWrite, SchemaRead)]
 pub struct EvaluationWindow {
     span: u64,
     scope: Option<String>,
