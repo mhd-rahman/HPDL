@@ -28,6 +28,7 @@
 use std::collections::BTreeSet;
 
 use serde::{Deserialize, Serialize};
+use wincode::{SchemaRead, SchemaWrite};
 
 use crate::{Error, ModuleRef};
 
@@ -73,7 +74,10 @@ pub const PHYSICAL_NAMESPACE: &str = "physics";
 /// assert!(LawDomain::new("bad domain!").is_err());
 /// assert!(LawDomain::new("trailing.").is_err());
 /// ```
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(
+    Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, SchemaWrite,
+    SchemaRead,
+)]
 pub struct LawDomain(String);
 
 impl LawDomain {
@@ -124,7 +128,7 @@ impl LawDomain {
 /// authoritative law for the named domains ([`LawMode::Replaces`]). Two laws
 /// claiming authority over the same exclusive domain is a conflict (`E6003`),
 /// never a silent override.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, SchemaWrite, SchemaRead)]
 pub enum LawMode {
     /// The law adds behavior without displacing any existing domain authority.
     Additive,
@@ -161,7 +165,7 @@ pub enum LawMode {
 ///     ModuleRef::new("m", "1.0").unwrap(),
 /// ).is_err());
 /// ```
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, SchemaWrite, SchemaRead)]
 pub struct MagicBridge {
     sources: BTreeSet<LawDomain>,
     target: LawDomain,
@@ -243,7 +247,7 @@ impl MagicBridge {
 /// assert!(law.is_magic());
 /// assert!(law.touches_physical());
 /// ```
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, SchemaWrite, SchemaRead)]
 pub struct WorldLaw {
     module: ModuleRef,
     mode: LawMode,

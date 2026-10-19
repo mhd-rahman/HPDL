@@ -40,15 +40,12 @@ yanked = "deny"
 
 # Ignored advisories. Each entry MUST have a documented rationale and should be
 # backed by an ADR in docs/rfcs/.
-ignore = [
-    # RUSTSEC-2025-0141: bincode 1.3.3 is "unmaintained" (NOT a vulnerability).
-    # The author declared 1.3.3 a complete, frozen release. hpdl-pir pins it as
-    # the canonical PIR encoder; per the determinism steering, changing the
-    # encoder changes canonical PIR bytes and therefore requires a deliberate
-    # PIR format-version decision — it is out of scope for a dependency bump.
-    # Pending ADR; revisit if a security (not maintenance) advisory is issued.
-    { id = "RUSTSEC-2025-0141", reason = "bincode 1.3.3 intentionally frozen; load-bearing canonical PIR encoder (feature 02). Replacing it is a PIR format-version decision, tracked for an ADR." },
-]
+#
+# RUSTSEC-2025-0141 (bincode 1.3.3 "unmaintained") was removed here when the
+# canonical PIR serializer was migrated to wincode (ADR 0015). bincode is no
+# longer a dependency of this workspace at all — not shipped, and not a
+# dev-dependency. No ignore is needed.
+ignore = []
 
 # ---------------------------------------------------------------------------
 # Dependency bans — prevent duplicate versions of critical crates

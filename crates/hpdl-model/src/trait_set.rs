@@ -1,6 +1,7 @@
 use std::collections::BTreeSet;
 
 use serde::{Deserialize, Serialize};
+use wincode::{SchemaRead, SchemaWrite};
 
 use crate::Error;
 
@@ -22,7 +23,7 @@ const MAX_TRAIT_LEN: usize = 64;
 /// // lexicographic order guaranteed
 /// assert_eq!(names, ["atmosphere.thin", "geology.rocky"]);
 /// ```
-#[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize, SchemaWrite, SchemaRead)]
 pub struct TraitSet(BTreeSet<String>);
 
 impl TraitSet {

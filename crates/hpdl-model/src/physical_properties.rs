@@ -19,7 +19,17 @@
 /// };
 /// assert!(props.radius_m.is_none());
 /// ```
-#[derive(Clone, Debug, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Clone,
+    Debug,
+    PartialEq,
+    Eq,
+    Default,
+    serde::Serialize,
+    serde::Deserialize,
+    wincode::SchemaWrite,
+    wincode::SchemaRead,
+)]
 pub struct PhysicalProperties {
     /// Mass in kilograms. `None` means undeclared.
     pub mass_kg: Option<u128>,

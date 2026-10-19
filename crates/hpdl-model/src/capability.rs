@@ -14,6 +14,7 @@
 use std::collections::BTreeSet;
 
 use serde::{Deserialize, Serialize};
+use wincode::{SchemaRead, SchemaWrite};
 
 use crate::Error;
 
@@ -36,7 +37,10 @@ use crate::Error;
 /// assert_eq!(c.as_str(), "portal.cross-domain");
 /// assert!(Capability::new("bad cap!").is_err());
 /// ```
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(
+    Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, SchemaWrite,
+    SchemaRead,
+)]
 pub struct Capability(String);
 
 impl Capability {
@@ -102,7 +106,7 @@ pub(crate) fn validate_field_path(path: &str) -> Result<(), Error> {
 /// ).unwrap();
 /// assert!(rws.uncovered_writes().is_empty());
 /// ```
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, SchemaWrite, SchemaRead)]
 pub struct ReadWriteSet {
     reads: BTreeSet<String>,
     writes: BTreeSet<String>,

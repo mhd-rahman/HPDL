@@ -1,6 +1,7 @@
 use std::collections::BTreeSet;
 
 use serde::{Deserialize, Serialize};
+use wincode::{SchemaRead, SchemaWrite};
 
 use crate::{
     ActionDeclaration, BodyId, CelestialIdentity, EnvironmentDefinition, Error, KeplerianElements,
@@ -36,7 +37,7 @@ use crate::{
 ///
 /// assert_eq!(body.id().as_str(), "proxima-b");
 /// ```
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, SchemaWrite, SchemaRead)]
 pub struct CelestialBody {
     id: BodyId,
     properties: PhysicalProperties,
@@ -64,14 +65,20 @@ pub struct CelestialBody {
     /// Declared world laws (alternative physics, magic, custom reality). Empty
     /// means the body declares no custom law.
     ///
-    /// This field is `#[serde(skip)]`: it is deliberately **not** part of the
-    /// serialized definition yet. Canonical PIR (bincode) therefore sees no new
-    /// field — existing PIR bytes, hashes, and golden vectors are unchanged (see
+    /// This field is `#[serde(skip)]` / `#[wincode(skip)]`: it is deliberately
+    /// **not** part of the serialized definition yet. Canonical PIR therefore
+    /// sees no new field — existing PIR bytes, hashes, and golden vectors are
+    /// unchanged (see
     /// spec 11, OD-11.2: world laws are not lowered into PIR this feature). A
     /// serialized frontend surface for world laws is deferred to the RON / native
     /// parsers (features 04 / 05). The laws are carried in-memory for the single
     /// semantic validator, which runs on the live model, not on decoded bytes.
+    ///
+    /// `#[wincode(skip)]` mirrors `#[serde(skip)]`: wincode also omits the field
+    /// from the byte stream and initializes it to `Default` on read, so the
+    /// canonical PIR bytes are identical under either serializer.
     #[serde(skip)]
+    #[wincode(skip)]
     world_laws: Vec<WorldLaw>,
 }
 

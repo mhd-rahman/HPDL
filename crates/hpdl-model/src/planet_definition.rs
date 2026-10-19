@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use wincode::{SchemaRead, SchemaWrite};
 
 use crate::{CelestialBody, Error};
 
@@ -23,7 +24,7 @@ use crate::{CelestialBody, Error};
 /// let def = PlanetDefinition::new("1.0", body).unwrap();
 /// assert_eq!(def.language_version(), "1.0");
 /// ```
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, SchemaWrite, SchemaRead)]
 pub struct PlanetDefinition {
     language_version: String,
     body: CelestialBody,

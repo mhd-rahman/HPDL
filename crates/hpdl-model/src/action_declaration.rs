@@ -1,6 +1,7 @@
 use std::collections::BTreeSet;
 
 use serde::{Deserialize, Serialize};
+use wincode::{SchemaRead, SchemaWrite};
 
 use crate::{status_declaration::validate_name, Capability, Error, ReadWriteSet};
 
@@ -23,7 +24,7 @@ use crate::{status_declaration::validate_name, Capability, Error, ReadWriteSet};
 /// ).unwrap();
 /// assert_eq!(a.name(), "TerraformStep");
 /// ```
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, SchemaWrite, SchemaRead)]
 pub struct ActionDeclaration {
     name: String,
     reads: BTreeSet<String>,

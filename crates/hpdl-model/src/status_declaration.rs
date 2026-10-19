@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use wincode::{SchemaRead, SchemaWrite};
 
 use crate::{BaselineRef, CutPoints, Error, EvaluationWindow, EvaluatorRef, StatusDimension};
 
@@ -18,7 +19,7 @@ use crate::{BaselineRef, CutPoints, Error, EvaluationWindow, EvaluatorRef, Statu
 /// assert_eq!(s.scale_min(), 0);
 /// assert_eq!(s.scale_max(), 100);
 /// ```
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, SchemaWrite, SchemaRead)]
 pub struct StatusDeclaration {
     name: String,
     scale_min: i64,
